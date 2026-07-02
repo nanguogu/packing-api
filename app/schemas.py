@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
+from typing import Literal
 
 
 # --- Pack schemas --- #
@@ -132,3 +133,22 @@ class ProductRead(BaseModel):
 class ProductBatchImport(BaseModel):
     """Schema for batch CSV import: list of products to create at once."""
     products: list[ProductCreate] = Field(..., min_length=1)
+
+
+# --- Public shipping quote schemas --- #
+
+class QuotePackage(BaseModel):
+    """One customer carton in a multi-piece shipment."""
+    reference: str = Field(..., min_length=1, max_length=64)
+    length_cm: float = Field(..., gt=0)
+    width_cm: float = Field(..., gt=0)
+    height_cm: float = Field(..., gt=0)
+    weight_kg: float = Field(..., gt=0)
+
+
+class ShippingQuoteRequest(BaseModel):
+    """Quote a Hong Kong international export shipment."""
+    origin: Literal["HK"] = "HK"
+    destination: str = Field(..., min_length=2, max_length=2, description="ISO 3166-1 alpha-2 country code")
+    service_type: Literal["express", "priority", "economy"] = "priority"
+    packages: list[QuotePackage] = Field(..., min_length=1)

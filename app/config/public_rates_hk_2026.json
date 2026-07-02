@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "currency": "HKD",
+  "notices": [
+    "Bootstrap public-rate snapshot: priority service, Hong Kong to Singapore, 0.5-5.0 kg.",
+    "Fuel rates are versioned estimates and must be refreshed from carrier publications before production use.",
+    "Duties, taxes, remote-area and special-handling charges are not included in this bootstrap lane."
+  ],
+  "carriers": {
+    "DHL": {
+      "effective_from": "2026-01-01", "rate_type": "public_list", "fuel_rate": 0.36,
+      "source_url": "https://www.dhl.com/discover/content/dam/hong-kong/hk-rate-and-service-guide/Service_and_Rate_Guide_hk_EN_2026.pdf",
+      "zones": {"SG": "1"},
+      "services": {"priority": {"code": "DHL_EXPRESS_WORLDWIDE", "rounding_increment_kg": 0.5,
+        "rates": {"1": {"0.5": 358, "1.0": 391, "1.5": 424, "2.0": 457, "2.5": 490, "3.0": 551, "3.5": 612, "4.0": 673, "4.5": 734, "5.0": 795}}}}
+    },
+    "UPS": {
+      "effective_from": "2025-12-21", "rate_type": "public_list", "fuel_rate": 0.46,
+      "source_url": "https://assets.ups.com/adobe/assets/urn%3Aaaid%3Aaem%3A7bf455f0-5d4c-4965-ae5e-1c1f49426e8b/original/as/preview-service-guide-hk-gb-en.pdf",
+      "zones": {"SG": "1"},
+      "services": {"priority": {"code": "UPS_WORLDWIDE_EXPRESS_SAVER", "rounding_increment_kg": 0.5,
+        "rates": {"1": {"0.5": 387, "1.0": 457, "1.5": 526, "2.0": 592, "2.5": 660, "3.0": 730, "3.5": 801, "4.0": 870, "4.5": 939, "5.0": 1007}}}}
+    },
+    "FedEx": {
+      "effective_from": "2026-01-05", "rate_type": "public_promotional", "fuel_rate": 0.46,
+      "source_url": "https://www.fedex.com/content/dam/fedex/international/rates/fedex-rates-exp-en-hk-2026.pdf",
+      "zones": {"SG": "A"},
+      "services": {"priority": {"code": "FEDEX_INTERNATIONAL_PRIORITY", "rounding_increment_kg": 0.5,
+        "rates": {"A": {"0.5": 373.8, "1.0": 419.6, "1.5": 465.4, "2.0": 511.2, "2.5": 557.0, "3.0": 639.8, "3.5": 722.6, "4.0": 805.4, "4.5": 888.2, "5.0": 971.0}}}}
+    }
+  }
+}

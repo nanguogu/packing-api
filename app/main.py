@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.database import Base, engine
-from app.routers import pack, products
+from app.routers import pack, products, shipping
 
 
 @asynccontextmanager
@@ -27,6 +27,7 @@ app = FastAPI(
 
 app.include_router(pack.router)
 app.include_router(products.router)
+app.include_router(shipping.router)
 
 
 if __name__ == "__main__":
