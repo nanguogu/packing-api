@@ -44,11 +44,22 @@ def _package_billable_weight(package: Any, increment: float) -> dict[str, float]
     }
 
 
-def _lookup_table_rate(table: dict[str, float], weight: float) -> float:
+def _lookup_rate(service: dict[str, Any], zone: str, weight: float) -> float:
+    table = service["rates"][zone]
     key = f"{weight:.1f}"
-    if key not in table:
-        raise QuoteUnavailable(f"Public snapshot has no rate for {weight:g} kg")
-    return float(table[key])
+    if key in table:
+        return float(table[key])
+    for bracket in service.get("per_kg_rates", {}).get(zone, []):
+        if float(bracket["min_kg"]) <= weight <= float(bracket["max_kg"]):
+            return weight * float(bracket["rate_per_kg"])
+    raise QuoteUnavailable(f"Public snapshot has no rate for {weight:g} kg")
+
+
+def _shipment_increment(service: dict[str, Any], weight: float) -> float:
+    for rule in service.get("shipment_rounding", []):
+        if weight <= float(rule["max_kg"]):
+            return float(rule["increment_kg"])
+    return float(service["rounding_increment_kg"])
 
 
 def quote_public_shipment(request: Any) -> dict[str, Any]:
@@ -76,10 +87,11 @@ def quote_public_shipment(request: Any) -> dict[str, Any]:
 
         # Published multi-piece rules rate one shipment using the sum of each
         # package's independently determined billable weight.
+        package_weight_sum = sum(item["billable_weight_kg"] for item in packages)
         shipment_weight = _round_up(
-            sum(item["billable_weight_kg"] for item in packages), increment
+            package_weight_sum, _shipment_increment(service, package_weight_sum)
         )
-        base = _lookup_table_rate(service["rates"][zone], shipment_weight)
+        base = _lookup_rate(service, zone, shipment_weight)
         fuel_rate = float(carrier["fuel_rate"])
         fuel_base = base
         fuel = round(fuel_base * fuel_rate, 2)

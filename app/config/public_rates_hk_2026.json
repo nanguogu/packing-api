@@ -2,7 +2,7 @@
   "version": 1,
   "currency": "HKD",
   "notices": [
-    "Bootstrap public-rate snapshot: priority service, Hong Kong to Singapore, 0.5-5.0 kg.",
+    "Public-rate snapshot: priority service from Hong Kong to Singapore, including published high-weight multiplier bands.",
     "Fuel rates are versioned estimates and must be refreshed from carrier publications before production use.",
     "Duties, taxes, remote-area and special-handling charges are not included in this bootstrap lane."
   ],
@@ -12,21 +12,27 @@
       "source_url": "https://www.dhl.com/discover/content/dam/hong-kong/hk-rate-and-service-guide/Service_and_Rate_Guide_hk_EN_2026.pdf",
       "zones": {"SG": "1"},
       "services": {"priority": {"code": "DHL_EXPRESS_WORLDWIDE", "rounding_increment_kg": 0.5,
-        "rates": {"1": {"0.5": 358, "1.0": 391, "1.5": 424, "2.0": 457, "2.5": 490, "3.0": 551, "3.5": 612, "4.0": 673, "4.5": 734, "5.0": 795}}}}
+        "shipment_rounding": [{"max_kg": 30, "increment_kg": 0.5}, {"max_kg": 3000, "increment_kg": 1}],
+        "rates": {"1": {"0.5": 358, "1.0": 391, "1.5": 424, "2.0": 457, "2.5": 490, "3.0": 551, "3.5": 612, "4.0": 673, "4.5": 734, "5.0": 795, "5.5": 853, "6.0": 911, "6.5": 969, "7.0": 1027, "7.5": 1085, "8.0": 1143, "8.5": 1201, "9.0": 1259, "9.5": 1317, "10.0": 1375, "10.5": 1408, "11.0": 1441, "11.5": 1474, "12.0": 1507, "12.5": 1540, "13.0": 1573, "13.5": 1606, "14.0": 1639, "14.5": 1672, "15.0": 1705, "15.5": 1738, "16.0": 1771, "16.5": 1804, "17.0": 1837, "17.5": 1870, "18.0": 1903, "18.5": 1936, "19.0": 1969, "19.5": 2002, "20.0": 2035, "20.5": 2070, "21.0": 2105, "21.5": 2140, "22.0": 2175, "22.5": 2210, "23.0": 2245, "23.5": 2280, "24.0": 2315, "24.5": 2350, "25.0": 2385, "25.5": 2420, "26.0": 2455, "26.5": 2490, "27.0": 2525, "27.5": 2560, "28.0": 2595, "28.5": 2630, "29.0": 2665, "29.5": 2700, "30.0": 2735}},
+        "per_kg_rates": {"1": [{"min_kg": 30.1, "max_kg": 70, "rate_per_kg": 86}, {"min_kg": 70.1, "max_kg": 300, "rate_per_kg": 93}, {"min_kg": 300.1, "max_kg": 3000, "rate_per_kg": 99}]}}}
     },
     "UPS": {
       "effective_from": "2025-12-21", "rate_type": "public_list", "fuel_rate": 0.46,
       "source_url": "https://assets.ups.com/adobe/assets/urn%3Aaaid%3Aaem%3A7bf455f0-5d4c-4965-ae5e-1c1f49426e8b/original/as/preview-service-guide-hk-gb-en.pdf",
       "zones": {"SG": "1"},
       "services": {"priority": {"code": "UPS_WORLDWIDE_EXPRESS_SAVER", "rounding_increment_kg": 0.5,
-        "rates": {"1": {"0.5": 387, "1.0": 457, "1.5": 526, "2.0": 592, "2.5": 660, "3.0": 730, "3.5": 801, "4.0": 870, "4.5": 939, "5.0": 1007}}}}
+        "shipment_rounding": [{"max_kg": 20, "increment_kg": 0.5}, {"max_kg": 999999, "increment_kg": 1}],
+        "rates": {"1": {"0.5": 387, "1.0": 457, "1.5": 526, "2.0": 592, "2.5": 660, "3.0": 730, "3.5": 801, "4.0": 870, "4.5": 939, "5.0": 1007, "5.5": 1044, "6.0": 1078, "6.5": 1115, "7.0": 1152, "7.5": 1186, "8.0": 1227, "8.5": 1268, "9.0": 1306, "9.5": 1343, "10.0": 1384, "10.5": 1440, "11.0": 1491, "11.5": 1539, "12.0": 1591, "12.5": 1642, "13.0": 1690, "13.5": 1740, "14.0": 1797, "14.5": 1845, "15.0": 1899, "15.5": 1940, "16.0": 1982, "16.5": 2030, "17.0": 2071, "17.5": 2118, "18.0": 2140, "18.5": 2165, "19.0": 2179, "19.5": 2198, "20.0": 2205}},
+        "per_kg_rates": {"1": [{"min_kg": 21, "max_kg": 44, "rate_per_kg": 97}, {"min_kg": 45, "max_kg": 70, "rate_per_kg": 96}, {"min_kg": 71, "max_kg": 99, "rate_per_kg": 87}, {"min_kg": 100, "max_kg": 299, "rate_per_kg": 87}, {"min_kg": 300, "max_kg": 999999, "rate_per_kg": 85}]}}}
     },
     "FedEx": {
       "effective_from": "2026-01-05", "rate_type": "public_promotional", "fuel_rate": 0.46,
       "source_url": "https://www.fedex.com/content/dam/fedex/international/rates/fedex-rates-exp-en-hk-2026.pdf",
       "zones": {"SG": "A"},
       "services": {"priority": {"code": "FEDEX_INTERNATIONAL_PRIORITY", "rounding_increment_kg": 0.5,
-        "rates": {"A": {"0.5": 373.8, "1.0": 419.6, "1.5": 465.4, "2.0": 511.2, "2.5": 557.0, "3.0": 639.8, "3.5": 722.6, "4.0": 805.4, "4.5": 888.2, "5.0": 971.0}}}}
+        "shipment_rounding": [{"max_kg": 999999, "increment_kg": 0.5}],
+        "rates": {"A": {"0.5": 373.8, "1.0": 419.6, "1.5": 465.4, "2.0": 511.2, "2.5": 557.0, "3.0": 639.8, "3.5": 722.6, "4.0": 805.4, "4.5": 888.2, "5.0": 971.0, "5.5": 1011.8, "6.0": 1052.6, "6.5": 1093.4, "7.0": 1134.2, "7.5": 1175.0, "8.0": 1215.8, "8.5": 1256.6, "9.0": 1297.4, "9.5": 1338.2, "10.0": 1379.0, "10.5": 1424.5, "11.0": 1470.0, "11.5": 1515.5, "12.0": 1561.0, "12.5": 1606.5, "13.0": 1652.0, "13.5": 1697.5, "14.0": 1743.0, "14.5": 1788.5, "15.0": 1834.0, "15.5": 1879.5, "16.0": 1925.0, "16.5": 1970.5, "17.0": 2016.0, "17.5": 2061.5, "18.0": 2107.0, "18.5": 2152.5, "19.0": 2198.0, "19.5": 2243.5, "20.0": 2289.0, "20.5": 2334.5}},
+        "per_kg_rates": {"A": [{"min_kg": 21, "max_kg": 44, "rate_per_kg": 111.6}, {"min_kg": 45, "max_kg": 70, "rate_per_kg": 100.4}, {"min_kg": 71, "max_kg": 99, "rate_per_kg": 95.3}, {"min_kg": 100, "max_kg": 299, "rate_per_kg": 91.5}, {"min_kg": 300, "max_kg": 499, "rate_per_kg": 91.2}, {"min_kg": 500, "max_kg": 999, "rate_per_kg": 87.3}, {"min_kg": 1000, "max_kg": 999999, "rate_per_kg": 87.3}]}}}
     }
   }
 }
