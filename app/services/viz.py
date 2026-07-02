@@ -34,12 +34,12 @@ def _cuboid_mesh(x: float, y: float, z: float, sx: float, sy: float, sz: float):
     # 8 vertices of the cuboid
     vx = [x,      x + sx, x,      x + sx, x,      x + sx, x,      x + sx]
     vy = [y,      y,      y + sy, y + sy, y,      y,      y + sy, y + sy]
-    vz = [z,      z,      z,      z + sz, z + sz, z + sz, z + sz, z + sz]
+    vz = [z,      z,      z,      z,      z + sz, z + sz, z + sz, z + sz]
 
     # 12 triangles (2 per face, 6 faces)
-    i_arr = [0, 0, 4, 4, 0, 0, 2, 2, 0, 0, 2, 2]
-    j_arr = [1, 3, 5, 7, 2, 6, 3, 7, 1, 5, 1, 3]
-    k_arr = [3, 1, 7, 5, 6, 2, 7, 3, 5, 1, 3, 7]
+    i_arr = [0, 0, 4, 4, 0, 0, 2, 2, 0, 0, 1, 1]
+    j_arr = [1, 3, 6, 7, 4, 5, 3, 7, 2, 6, 5, 7]
+    k_arr = [3, 2, 7, 5, 5, 1, 7, 6, 6, 4, 7, 3]
 
     return {"vx": vx, "vy": vy, "vz": vz, "i": i_arr, "j": j_arr, "k": k_arr}
 
@@ -138,7 +138,8 @@ _VIZ_HTML_TEMPLATE = """<!DOCTYPE html>
 <head>
     <meta charset="utf-8">
     <title>Packing 3D Visualization</title>
-    <script src="https://cdn.plot.ly/plotly-3.1.0.min.js"></script>
+    <!-- GL3D-only bundle is substantially smaller and includes Mesh3d/Scatter3d. -->
+    <script src="https://cdn.jsdelivr.net/npm/plotly.js-gl3d-dist-min@3.1.0/plotly-gl3d.min.js"></script>
     <style>
         body { margin: 0; font-family: system-ui, sans-serif; }
         #viz { width: 100%; height: 85vh; }
@@ -200,9 +201,17 @@ _VIZ_HTML_TEMPLATE = """<!DOCTYPE html>
         }
     }
 
-    Plotly.newPlot('viz', traces, layout);
+    if (typeof Plotly === 'undefined') {
+        document.getElementById('info').textContent =
+            'Visualization library failed to load. Check the network connection and reload.';
+        document.getElementById('viz').innerHTML =
+            '<div style="padding:24px;color:#b00020">Unable to load the 3D renderer.</div>';
+    } else {
+        Plotly.newPlot('viz', traces, layout);
+    }
 
     function stepForward() {
+        if (typeof Plotly === 'undefined') return;
         if (currentStep < steps.length) {
             var indices = steps[currentStep];
             for (var idx of indices) {
@@ -214,6 +223,7 @@ _VIZ_HTML_TEMPLATE = """<!DOCTYPE html>
     }
 
     function stepBack() {
+        if (typeof Plotly === 'undefined') return;
         if (currentStep > 0) {
             currentStep--;
             var indices = steps[currentStep];
@@ -225,6 +235,7 @@ _VIZ_HTML_TEMPLATE = """<!DOCTYPE html>
     }
 
     function resetView() {
+        if (typeof Plotly === 'undefined') return;
         currentStep = 0;
         for (var i = 0; i < traces.length; i++) {
             if (traces[i].type === 'mesh3d') {
@@ -240,6 +251,7 @@ _VIZ_HTML_TEMPLATE = """<!DOCTYPE html>
     }
 
     function toggleAll() {
+        if (typeof Plotly === 'undefined') return;
         currentStep = steps.length;
         for (var i = 0; i < traces.length; i++) {
             if (traces[i].type === 'mesh3d') {
@@ -308,6 +320,10 @@ def generate_3d_html(packer_result: dict) -> str:
 
     trace_idx = 0
     total_items = 0
+    global_colors = _generate_colors(sum(len(group.get("layout") or []) for group in groups))
+    group_offset_x = 0.0
+    max_display_y = 0.0
+    max_display_z = 0.0
 
     for group_idx, group in enumerate(groups):
         if not group.get("box") or not group.get("layout"):
@@ -318,24 +334,27 @@ def generate_3d_html(packer_result: dict) -> str:
 
         # Container wireframe
         L, W, H = box["length_cm"], box["width_cm"], box["height_cm"]
+        x0 = group_offset_x
+        max_display_y = max(max_display_y, W)
+        max_display_z = max(max_display_z, H)
 
         # Wireframe edges
         edges = [
             # Bottom face
-            [(0, 0, 0), (L, 0, 0)],
-            [(L, 0, 0), (L, W, 0)],
-            [(L, W, 0), (0, W, 0)],
-            [(0, W, 0), (0, 0, 0)],
+            [(x0, 0, 0), (x0 + L, 0, 0)],
+            [(x0 + L, 0, 0), (x0 + L, W, 0)],
+            [(x0 + L, W, 0), (x0, W, 0)],
+            [(x0, W, 0), (x0, 0, 0)],
             # Top face
-            [(0, 0, H), (L, 0, H)],
-            [(L, 0, H), (L, W, H)],
-            [(L, W, H), (0, W, H)],
-            [(0, W, H), (0, 0, H)],
+            [(x0, 0, H), (x0 + L, 0, H)],
+            [(x0 + L, 0, H), (x0 + L, W, H)],
+            [(x0 + L, W, H), (x0, W, H)],
+            [(x0, W, H), (x0, 0, H)],
             # Vertical edges
-            [(0, 0, 0), (0, 0, H)],
-            [(L, 0, 0), (L, 0, H)],
-            [(L, W, 0), (L, W, H)],
-            [(0, W, 0), (0, W, H)],
+            [(x0, 0, 0), (x0, 0, H)],
+            [(x0 + L, 0, 0), (x0 + L, 0, H)],
+            [(x0 + L, W, 0), (x0 + L, W, H)],
+            [(x0, W, 0), (x0, W, H)],
         ]
 
         for edge in edges:
@@ -350,9 +369,9 @@ def generate_3d_html(packer_result: dict) -> str:
                 "hoverinfo": "skip",
                 "showlegend": False,
             })
+        trace_idx += len(edges)
 
         # Item cuboids
-        colors = _generate_colors(len(layout))
         step_items = []
 
         for item_idx, entry in enumerate(layout):
@@ -360,7 +379,7 @@ def generate_3d_html(packer_result: dict) -> str:
             pdims = entry.get("placed_dims") or {}
 
             mesh = _cuboid_mesh(
-                pos.get("x", 0), pos.get("y", 0), pos.get("z", 0),
+                x0 + pos.get("x", 0), pos.get("y", 0), pos.get("z", 0),
                 pdims.get("length", 0), pdims.get("width", 0), pdims.get("height", 0),
             )
 
@@ -380,7 +399,7 @@ def generate_3d_html(packer_result: dict) -> str:
                 "i": mesh["i"],
                 "j": mesh["j"],
                 "k": mesh["k"],
-                "color": colors[item_idx],
+                "color": global_colors[total_items],
                 "opacity": 0.85,
                 "flatshading": False,
                 "lighting": {"ambient": 1.0, "diffuse": 0.2, "specular": 0.0},
@@ -391,28 +410,25 @@ def generate_3d_html(packer_result: dict) -> str:
             })
 
             step_items.append(trace_idx)
-            boxviz_data["uniqColorList"].append(colors[item_idx])
+            boxviz_data["uniqColorList"].append(global_colors[total_items])
             boxviz_data["groupKinds"].append("rigid")
             boxviz_data["groupClasses"].append("item")
             boxviz_data["rigidAll"].append(trace_idx)
             total_items += 1
             trace_idx += 1
 
-        trace_idx += len(edges)  # account for wireframe traces
-
         all_step_groups.append(step_items)
+        group_offset_x += L + max(5.0, L * 0.1)
 
     # Build BOXVIZ_DATA
     boxviz_data["stepGroups"] = all_step_groups
     boxviz_data["totals"] = {"item": total_items}
-    max_dim = max(
-        max(g["box"]["length_cm"], g["box"]["width_cm"], g["box"]["height_cm"])
-        for g in groups if g.get("box")
-    ) if groups else 50
+    display_length = max(1.0, group_offset_x)
+    max_dim = max(display_length, max_display_y, max_display_z, 1.0)
     boxviz_data["aspect"] = {
-        "x": round(max(g["box"]["length_cm"] / max_dim for g in groups if g.get("box")), 2),
-        "y": round(max(g["box"]["width_cm"] / max_dim for g in groups if g.get("box")), 2),
-        "z": round(max(g["box"]["height_cm"] / max_dim for g in groups if g.get("box")), 2),
+        "x": round(display_length / max_dim, 2),
+        "y": round(max_display_y / max_dim, 2),
+        "z": round(max_display_z / max_dim, 2),
     }
 
     # Load boxviz.js (optional)

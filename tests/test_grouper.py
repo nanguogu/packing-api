@@ -117,6 +117,7 @@ class TestMustPackTogether:
         # STANDALONE-1 may or may not be in same group (no conflict → likely same group via P2 default)
         standalone_idx = _find_sku_group(groups, "STANDALONE-1")
         assert standalone_idx is not None
+        assert standalone_idx == host_idx, "Unrelated compatible items should not create extra boxes"
 
 
 # ---------------------------------------------------------------------------

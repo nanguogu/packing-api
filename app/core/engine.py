@@ -17,6 +17,7 @@ For multi-box scenarios (items exceed shipping limits):
 
 from __future__ import annotations
 
+import math
 import time
 from ortools.sat.python import cp_model
 
@@ -148,16 +149,18 @@ def calculate_min_box(
     box_H_mm = solver.Value(maxZ)
 
     # Round up to nearest cm for practical box sizes
-    box_L_cm = max(1, round(box_L_mm * MM_TO_CM))  # at least 1cm
-    box_W_cm = max(1, round(box_W_mm * MM_TO_CM))
-    box_H_cm = max(1, round(box_H_mm * MM_TO_CM))
+    # Never round the containing box down: layout coordinates retain 0.1cm
+    # precision, so normal round() could return a box smaller than its contents.
+    box_L_cm = max(1, math.ceil(box_L_mm * MM_TO_CM))  # at least 1cm
+    box_W_cm = max(1, math.ceil(box_W_mm * MM_TO_CM))
+    box_H_cm = max(1, math.ceil(box_H_mm * MM_TO_CM))
 
     box_volume_cm3 = box_L_cm * box_W_cm * box_H_cm
 
     # Build layout
     layout = []
-    all_rot_names = ["LWH", "LHW", "WHL", "WHL", "HLW", "HWL"]
-    upright_rot_names = ["LWH", "WHL"]
+    all_rot_names = ["LWH", "LHW", "WLH", "WHL", "HLW", "HWL"]
+    upright_rot_names = ["LWH", "WLH"]
     items_volume_cm3 = 0
 
     for i in range(n):
@@ -373,13 +376,13 @@ def _solve_with_box_limits(
     if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
         return None
 
-    box_L_cm = max(1, round(solver.Value(maxX) * MM_TO_CM))
-    box_W_cm = max(1, round(solver.Value(maxY) * MM_TO_CM))
-    box_H_cm = max(1, round(solver.Value(maxZ) * MM_TO_CM))
+    box_L_cm = max(1, math.ceil(solver.Value(maxX) * MM_TO_CM))
+    box_W_cm = max(1, math.ceil(solver.Value(maxY) * MM_TO_CM))
+    box_H_cm = max(1, math.ceil(solver.Value(maxZ) * MM_TO_CM))
     box_volume_cm3 = box_L_cm * box_W_cm * box_H_cm
 
     layout = []
-    all_rot_names = ["LWH", "LHW", "WHL", "WHL", "HLW", "HWL"]
+    all_rot_names = ["LWH", "LHW", "WLH", "WHL", "HLW", "HWL"]
     items_volume_cm3 = 0
 
     for i in range(n):

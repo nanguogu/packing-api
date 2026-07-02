@@ -167,15 +167,28 @@ def apply_group_rules(
             # In real deployment, this should be flagged as a rule error
             # For MVP, must_pack wins over must_not_pack when contradictory
 
-    # Step 4: Build initial groups from Union-Find
-    groups_dict = uf.groups()
+    # Conflicts inside one must-pack component are overridden by must-pack.
+    effective_conflicts = {
+        (src, tgt) for src, tgt in conflict_pairs if uf.find(src) != uf.find(tgt)
+    }
 
-    # Convert groups_dict to list of item groups
+    # Step 4: Build must-pack components, then greedily combine every
+    # compatible component. Starting every unrelated item in a separate final
+    # group caused a single rule to create many unnecessary boxes.
+    groups_dict = uf.groups()
     item_groups = []
-    for root, members in groups_dict.items():
-        group_items = [sku_map[sku] for sku in members if sku in sku_map]
-        if group_items:
-            item_groups.append(group_items)
+    for members in groups_dict.values():
+        component = [sku_map[sku] for sku in members if sku in sku_map]
+        if not component:
+            continue
+        component_skus = {it["sku"] for it in component}
+        for group in item_groups:
+            group_skus = {it["sku"] for it in group}
+            if not _would_create_conflict(group_skus, component_skus, effective_conflicts):
+                group.extend(component)
+                break
+        else:
+            item_groups.append(component)
 
     # Step 5: Apply P2 pack_near → try to merge compatible groups
     # "pack_near" means these items prefer to be together IF no P1 conflicts
@@ -198,7 +211,7 @@ def apply_group_rules(
         src_group_skus = {it["sku"] for it in item_groups[src_group_idx]}
         tgt_group_skus = {it["sku"] for it in item_groups[tgt_group_idx]}
 
-        if _would_create_conflict(src_group_skus, tgt_group_skus, conflict_pairs):
+        if _would_create_conflict(src_group_skus, tgt_group_skus, effective_conflicts):
             logger.debug(
                 f"P2 skip: merging {src} and {tgt} would create P1 conflict"
             )

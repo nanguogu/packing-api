@@ -7,6 +7,9 @@ Validates:
   - viz.py generate_3d_html() produces correct HTML structure
 """
 
+import json
+import re
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -72,6 +75,23 @@ class TestCuboidMesh:
         assert min(mesh["vx"]) == 0
         assert min(mesh["vy"]) == 0
         assert min(mesh["vz"]) == 0
+
+    def test_cuboid_has_twelve_unique_non_degenerate_triangles(self):
+        mesh = _cuboid_mesh(0, 0, 0, 10, 20, 30)
+        vertices = list(zip(mesh["vx"], mesh["vy"], mesh["vz"]))
+        triangles = list(zip(mesh["i"], mesh["j"], mesh["k"]))
+
+        assert len({tuple(sorted(face)) for face in triangles}) == 12
+        for a, b, c in triangles:
+            va, vb, vc = vertices[a], vertices[b], vertices[c]
+            ab = tuple(vb[n] - va[n] for n in range(3))
+            ac = tuple(vc[n] - va[n] for n in range(3))
+            cross = (
+                ab[1] * ac[2] - ab[2] * ac[1],
+                ab[2] * ac[0] - ab[0] * ac[2],
+                ab[0] * ac[1] - ab[1] * ac[0],
+            )
+            assert cross != (0, 0, 0)
 
 
 class TestGenerateColors:
@@ -149,6 +169,26 @@ class TestGenerate3DHtml:
 
         assert "ArrowRight" in html
         assert "ArrowLeft" in html
+
+    def test_animation_indices_target_item_meshes(self):
+        items = [_item("A", 30, 20, 15, 5)]
+        html = generate_3d_html(pack_items(items, verify=False))
+        match = re.search(r"window\.BOXVIZ_DATA = (.*?);", html)
+        data = json.loads(match.group(1))
+        assert data["stepGroups"] == [[12]]  # 12 wireframe traces precede first mesh
+
+    def test_multiple_boxes_are_offset_side_by_side(self):
+        items = [_item("A", 10, 10, 10), _item("B", 12, 8, 6)]
+        rules = [{
+            "rule_type": "must_not_pack_together", "source_sku": "A",
+            "target_sku": "B", "priority": 1,
+        }]
+        html = generate_3d_html(pack_items(items, group_rules=rules, verify=False))
+        match = re.search(r"var traces = (.*?);\n", html)
+        traces = json.loads(match.group(1))
+        meshes = [trace for trace in traces if trace["type"] == "mesh3d"]
+        assert max(meshes[0]["x"]) < min(meshes[1]["x"])
+        assert meshes[0]["color"] != meshes[1]["color"]
 
 
 # ---------------------------------------------------------------------------

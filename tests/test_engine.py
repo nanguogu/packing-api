@@ -468,3 +468,33 @@ class TestEdgeCases:
 
         assert result is not None
         assert result["layout"][0]["weight_kg"] == 0
+
+    def test_fractional_dimensions_never_shrink_container(self):
+        """Returned whole-cm box must contain every 0.1cm layout extent."""
+        items = [{
+            "sku": "FRACTIONAL", "length_cm": 10.5, "width_cm": 7.5,
+            "height_cm": 3.5, "weight_kg": 1,
+        }]
+        result = calculate_min_box(items)
+
+        assert result["utilization"] <= 1
+        box = result["box"]
+        for entry in result["layout"]:
+            assert entry["position"]["x"] + entry["placed_dims"]["length"] <= box["length_cm"]
+            assert entry["position"]["y"] + entry["placed_dims"]["width"] <= box["width_cm"]
+            assert entry["position"]["z"] + entry["placed_dims"]["height"] <= box["height_cm"]
+
+    def test_rotation_label_matches_placed_dimensions(self):
+        items = [{
+            "sku": "ROT", "length_cm": 11, "width_cm": 7,
+            "height_cm": 3, "weight_kg": 1,
+        }]
+        result = calculate_min_box(items)
+        entry = result["layout"][0]
+        dimensions_by_rotation = {
+            "LWH": (11, 7, 3), "LHW": (11, 3, 7),
+            "WLH": (7, 11, 3), "WHL": (7, 3, 11),
+            "HLW": (3, 11, 7), "HWL": (3, 7, 11),
+        }
+        placed = entry["placed_dims"]
+        assert (placed["length"], placed["width"], placed["height"]) == dimensions_by_rotation[entry["rotation"]]

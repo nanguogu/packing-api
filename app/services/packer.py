@@ -142,12 +142,26 @@ def _compute_dual_path(
         # Only path B available
         recommendation = "path_b_only"
 
-    # Build cost comparison
+    def _box_exceeds_limits(result: dict | None) -> bool | None:
+        if not result or not result.get("box"):
+            return None
+        box = result["box"]
+        dims = sorted([box["length_cm"], box["width_cm"], box["height_cm"]])
+        limits = sorted([
+            shipping_limits.get("max_length_cm", 9999),
+            shipping_limits.get("max_width_cm", 9999),
+            shipping_limits.get("max_height_cm", 9999),
+        ])
+        return not all(d <= limit + 1 for d, limit in zip(dims, limits))
+
+    # Build cost comparison from actual returned box dimensions. The engine's
+    # exceeds_limits field describes the unconstrained attempt, not necessarily
+    # the selected constrained box.
     cost_comparison = {
         "path_a_cost_usd": path_a_cost,
         "path_b_cost_usd": path_b_cost,
-        "path_a_exceeds_limits": path_a_result.get("exceeds_limits", True) if path_a_result else None,
-        "path_b_exceeds_limits": True,  # Path B is unconstrained, may exceed
+        "path_a_exceeds_limits": _box_exceeds_limits(path_a_result),
+        "path_b_exceeds_limits": _box_exceeds_limits(path_b_result),
         "savings_usd": None,
     }
 

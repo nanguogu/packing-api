@@ -85,7 +85,8 @@ def pack_order(request: PackRequest, db: Session = Depends(get_db)):
     result = pack_items(
         items=items,
         group_rules=rules,
-        shipping_limits=None,  # shipping limits added in D6-D8
+        shipping_limits=None,
+        destination=request.destination,
     )
 
     # Map result to PackResponse
@@ -99,7 +100,7 @@ def pack_order(request: PackRequest, db: Session = Depends(get_db)):
             box_dimensions=box_dims,
             layout=g["layout"],
             utilization=g["utilization"],
-            shipping_recommendation=None,  # added in D6-D8
+            shipping_recommendation=g.get("shipping"),
         )
     elif result["strategy"] == "multi_box":
         # For multi_box, return the largest group's primary box + overall info
@@ -113,7 +114,7 @@ def pack_order(request: PackRequest, db: Session = Depends(get_db)):
             box_dimensions=box_dims,
             layout=best_group["layout"],
             utilization=result["total_utilization"],
-            shipping_recommendation=None,
+            shipping_recommendation=best_group.get("shipping"),
         )
     else:
         # Mixed or unknown strategy — return overall info
@@ -168,6 +169,7 @@ def pack_order_detail(request: PackRequest, db: Session = Depends(get_db)):
         items=items,
         group_rules=rules,
         shipping_limits=None,
+        destination=request.destination,
     )
 
     return result
