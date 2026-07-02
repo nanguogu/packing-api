@@ -15,6 +15,7 @@ Key acceptance criteria:
 
 import pytest
 import math
+from copy import deepcopy
 from app.services.shipping import (
     calculate_dim_weight_cm,
     calculate_dim_weight_in,
@@ -30,6 +31,9 @@ from app.services.shipping import (
     FUEL_SURCHARGE_DHL,
     FUEL_SURCHARGE_UPS,
     FUEL_SURCHARGE_FEDEX,
+    SURCHARGE_CONFIG,
+    SURCHARGE_CONFIG_PATH,
+    load_surcharge_config,
 )
 
 
@@ -205,6 +209,32 @@ class TestFedExSurcharges:
         has_oversize = any(s["trigger_type"] == "oversize" for s in surcharges)
         assert not has_ahs  # Oversize replaces AHS
         assert has_oversize
+
+
+class TestConfigurableSurcharges:
+    """Rules can come from JSON files or database-shaped mappings."""
+
+    def test_loads_default_json_config(self):
+        config = load_surcharge_config(SURCHARGE_CONFIG_PATH)
+        assert set(config["carriers"]) == {"DHL", "UPS", "FedEx"}
+
+    def test_accepts_database_style_mapping(self):
+        config = deepcopy(SURCHARGE_CONFIG)
+        config["carriers"]["DHL"]["rules"][0]["amount_usd"] = 77
+        loaded = load_surcharge_config(config)
+
+        surcharges = calculate_surcharges("DHL", 130, 40, 30, 10, loaded)
+        oversize = next(s for s in surcharges if s["trigger_type"] == "oversize")
+        assert oversize["amount_usd"] == 77
+
+    def test_config_controls_fuel_rate(self):
+        config = deepcopy(SURCHARGE_CONFIG)
+        config["carriers"]["UPS"]["fuel_rate"] = 0
+        box = {"length_cm": 30, "width_cm": 20, "height_cm": 15}
+
+        result = get_shipping_recommendation(box, 5, 6, config)
+        ups = next(c for c in result["all_carriers"] if c["carrier"] == "UPS")
+        assert ups["cost_usd"] == ups["base_rate_usd"]
 
 
 # ---------------------------------------------------------------------------

@@ -3,7 +3,7 @@
 Core shipping pricing engine for MVP (W2, D6-D10).
 
 Supports three carriers: DHL, UPS, FedEx.
-All pricing data is hardcoded for MVP (will be replaced with DB/API later).
+Base rates remain MVP tables; surcharge rules load from JSON or a DB mapping.
 
 Key concepts:
   - Dimensional weight (dim weight): L×W×H ÷ 5000 (metric) or ÷139 (imperial)
@@ -28,8 +28,11 @@ Calculation flow:
 
 from __future__ import annotations
 
+import json
 import math
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Mapping
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -53,14 +56,14 @@ UPS_OVERSIZE_VOLUME_THRESHOLD = 17280  # → Large Package Surcharge (not used y
 FEDEX_AHS_VOLUME_THRESHOLD = 10368
 FEDEX_OVERSIZE_VOLUME_THRESHOLD = 17280
 
-# Fuel surcharge rates (MVP hardcoded, will be configurable later)
+# Backwards-compatible defaults. Runtime pricing uses SURCHARGE_CONFIG below.
 FUEL_SURCHARGE_DHL = 0.36  # 36% (monthly)
 FUEL_SURCHARGE_UPS = 0.46  # 46% (weekly)
 FUEL_SURCHARGE_FEDEX = 0.46  # 46% (weekly)
 
 
 # ---------------------------------------------------------------------------
-# Surcharge rules (hardcoded for MVP per task book)
+# Configurable surcharge rules
 # ---------------------------------------------------------------------------
 
 @dataclass
@@ -72,91 +75,80 @@ class SurchargeRule:
     amount_usd: float  # flat fee amount
     stacking: str  # "chain" (叠加, cumulative) | "exclusive" (互斥, replaces) | "independent"
     description: str = ""
+    condition: Mapping[str, Any] = field(default_factory=dict)
+    exclusive_group: str | None = None
+    priority: int = 0
 
 
-# DHL surcharges: chain stacking (链式叠加)
-DHL_SURCHARGES = [
-    SurchargeRule(
-        name="DHL Oversize",
-        trigger_type="oversize",
-        trigger_condition="any single dim > 120cm OR volume > dim_weight threshold",
-        amount_usd=30,
-        stacking="chain",
-        description="Oversize surcharge: any dim >120cm. Chains with other surcharges.",
-    ),
-    SurchargeRule(
-        name="DHL Overweight",
-        trigger_type="overweight",
-        trigger_condition="actual weight > 70kg",
-        amount_usd=100,
-        stacking="chain",
-        description="Overweight surcharge: >70kg. Chains with Oversize.",
-    ),
-    SurchargeRule(
-        name="DHL Fuel",
-        trigger_type="fuel",
-        trigger_condition="always",
-        amount_usd=0,  # percentage, not flat
-        stacking="chain",
-        description="Fuel surcharge 36% on total (base + all surcharges).",
-    ),
-]
+SURCHARGE_CONFIG_PATH = Path(__file__).resolve().parents[1] / "config" / "shipping_surcharges.json"
 
-# UPS surcharges: LPS exclusive with AHS (LPS不叠AHS)
-UPS_SURCHARGES = [
-    SurchargeRule(
-        name="UPS AHS (Additional Handling)",
-        trigger_type="ahs",
-        trigger_condition="any dim > 48in OR actual weight > 70lb OR volume > 10368in³",
-        amount_usd=46,  # base AHS, can go up to $58
-        stacking="independent",
-        description="AHS: dims >48in, weight >70lb, or volume >10368in³.",
-    ),
-    SurchargeRule(
-        name="UPS LPS (Large Package)",
-        trigger_type="lps",
-        trigger_condition="length + girth > 130in AND volume > 10368in³",
-        amount_usd=219,  # base LPS, can go up to $330
-        stacking="exclusive",
-        description="LPS: length+girth >130in. REPLACES AHS (not stacked).",
-    ),
-    SurchargeRule(
-        name="UPS Fuel",
-        trigger_type="fuel",
-        trigger_condition="always",
-        amount_usd=0,
-        stacking="chain",
-        description="Fuel surcharge 46% on total.",
-    ),
-]
 
-# FedEx surcharges: Oversize exclusive with AHS (Oversize不叠AHS)
-FEDEX_SURCHARGES = [
-    SurchargeRule(
-        name="FedEx AHS (Additional Handling)",
-        trigger_type="ahs",
-        trigger_condition="any dim > 48in OR actual weight > 70lb OR volume > 10368in³",
-        amount_usd=46,
-        stacking="independent",
-        description="AHS: dims >48in, weight >70lb, or volume >10368in³.",
-    ),
-    SurchargeRule(
-        name="FedEx Oversize",
-        trigger_type="oversize",
-        trigger_condition="length + girth > 130in OR volume > 17280in³",
-        amount_usd=255,  # base Oversize, can go up to $330
-        stacking="exclusive",
-        description="Oversize: length+girth >130in or volume >17280in³. REPLACES AHS.",
-    ),
-    SurchargeRule(
-        name="FedEx Fuel",
-        trigger_type="fuel",
-        trigger_condition="always",
-        amount_usd=0,
-        stacking="chain",
-        description="Fuel surcharge 46% on total.",
-    ),
-]
+def load_surcharge_config(source: str | Path | Mapping[str, Any]) -> dict[str, Any]:
+    """Load and validate surcharge configuration from JSON or a DB-style mapping.
+
+    Database adapters can query their tables, assemble the same mapping shape as
+    the JSON file, and pass it directly to this function.
+    """
+    if isinstance(source, Mapping):
+        raw = dict(source)
+    else:
+        with Path(source).open(encoding="utf-8") as config_file:
+            raw = json.load(config_file)
+
+    carriers = raw.get("carriers")
+    if not isinstance(carriers, Mapping) or not carriers:
+        raise ValueError("Surcharge config must contain a non-empty 'carriers' mapping")
+    for carrier, settings in carriers.items():
+        if not isinstance(settings, Mapping):
+            raise ValueError(f"Carrier config for {carrier!r} must be a mapping")
+        fuel_rate = settings.get("fuel_rate")
+        if not isinstance(fuel_rate, (int, float)) or not 0 <= fuel_rate <= 1:
+            raise ValueError(f"Invalid fuel_rate for {carrier!r}")
+        if not isinstance(settings.get("rules"), list):
+            raise ValueError(f"Carrier config for {carrier!r} must contain a rules list")
+        for rule in settings["rules"]:
+            required = {"name", "trigger_type", "amount_usd", "stacking", "condition"}
+            if not isinstance(rule, Mapping) or not required.issubset(rule):
+                raise ValueError(f"Invalid surcharge rule for {carrier!r}: {rule!r}")
+    return raw
+
+
+SURCHARGE_CONFIG = load_surcharge_config(SURCHARGE_CONFIG_PATH)
+
+
+def set_surcharge_config(source: str | Path | Mapping[str, Any]) -> None:
+    """Replace the process-wide surcharge config (useful for DB-backed config)."""
+    global SURCHARGE_CONFIG, DHL_SURCHARGES, UPS_SURCHARGES, FEDEX_SURCHARGES
+    SURCHARGE_CONFIG = load_surcharge_config(source)
+    DHL_SURCHARGES = _rules_for("DHL")
+    UPS_SURCHARGES = _rules_for("UPS")
+    FEDEX_SURCHARGES = _rules_for("FedEx")
+
+
+def _rules_for(carrier: str, config: Mapping[str, Any] | None = None) -> list[SurchargeRule]:
+    carrier_config = (config or SURCHARGE_CONFIG).get("carriers", {}).get(carrier)
+    if not carrier_config:
+        return []
+    return [
+        SurchargeRule(
+            name=rule["name"],
+            trigger_type=rule["trigger_type"],
+            trigger_condition=rule.get("trigger_condition", ""),
+            amount_usd=float(rule["amount_usd"]),
+            stacking=rule["stacking"],
+            description=rule.get("description", ""),
+            condition=rule["condition"],
+            exclusive_group=rule.get("exclusive_group"),
+            priority=int(rule.get("priority", 0)),
+        )
+        for rule in carrier_config["rules"]
+    ]
+
+
+# Compatibility aliases for callers that inspect the rule lists.
+DHL_SURCHARGES = _rules_for("DHL")
+UPS_SURCHARGES = _rules_for("UPS")
+FEDEX_SURCHARGES = _rules_for("FedEx")
 
 
 # ---------------------------------------------------------------------------
@@ -323,12 +315,39 @@ def lookup_base_rate(
 # Surcharge calculation
 # ---------------------------------------------------------------------------
 
+_COMPARISON_OPERATORS = {
+    "gt": lambda actual, expected: actual > expected,
+    "gte": lambda actual, expected: actual >= expected,
+    "lt": lambda actual, expected: actual < expected,
+    "lte": lambda actual, expected: actual <= expected,
+    "eq": lambda actual, expected: actual == expected,
+}
+
+
+def _condition_matches(condition: Mapping[str, Any], metrics: Mapping[str, float]) -> bool:
+    """Evaluate a declarative condition tree against package metrics."""
+    if "always" in condition:
+        return bool(condition["always"])
+    if "any" in condition:
+        return any(_condition_matches(item, metrics) for item in condition["any"])
+    if "all" in condition:
+        return all(_condition_matches(item, metrics) for item in condition["all"])
+
+    field_name = condition.get("field")
+    operator_name = condition.get("operator")
+    if field_name not in metrics:
+        raise ValueError(f"Unknown surcharge metric: {field_name!r}")
+    if operator_name not in _COMPARISON_OPERATORS:
+        raise ValueError(f"Unknown surcharge operator: {operator_name!r}")
+    return _COMPARISON_OPERATORS[operator_name](metrics[field_name], condition.get("value"))
+
 def calculate_surcharges(
     carrier: str,
     length_cm: float,
     width_cm: float,
     height_cm: float,
     actual_weight_kg: float,
+    config: Mapping[str, Any] | None = None,
 ) -> list[dict]:
     """Determine which surcharges apply and calculate their amounts.
 
@@ -336,12 +355,13 @@ def calculate_surcharges(
         carrier: "DHL", "UPS", or "FedEx"
         length_cm, width_cm, height_cm: Package dimensions in cm
         actual_weight_kg: Actual weight in kg
+        config: Optional loaded configuration; defaults to the process config.
 
     Returns:
         List of applicable surcharge dicts with keys:
           - name, trigger_type, amount_usd, stacking
     """
-    # Convert to inches for UPS/FedEx
+    # Compute a carrier-neutral set of metrics once; rules only reference names.
     length_in = length_cm * CM_TO_IN
     width_in = width_cm * CM_TO_IN
     height_in = height_cm * CM_TO_IN
@@ -352,111 +372,45 @@ def calculate_surcharges(
     girth_in = calculate_girth_in(length_in, width_in, height_in)
     length_plus_girth = length_in + girth_in
 
-    applied = []
+    metrics = {
+        "length_cm": length_cm,
+        "width_cm": width_cm,
+        "height_cm": height_cm,
+        "max_dimension_cm": max(length_cm, width_cm, height_cm),
+        "actual_weight_kg": actual_weight_kg,
+        "length_in": length_in,
+        "width_in": width_in,
+        "height_in": height_in,
+        "max_dimension_in": max(length_in, width_in, height_in),
+        "actual_weight_lb": actual_weight_lb,
+        "volume_in3": volume_in3,
+        "girth_in": girth_in,
+        "length_plus_girth_in": length_plus_girth,
+    }
 
-    if carrier == "DHL":
-        for rule in DHL_SURCHARGES:
-            triggered = False
-            if rule.trigger_type == "oversize":
-                # DHL Oversize: any dim > 120cm
-                if max(length_cm, width_cm, height_cm) > 120:
-                    triggered = True
-            elif rule.trigger_type == "overweight":
-                # DHL Overweight: > 70kg
-                if actual_weight_kg > 70:
-                    triggered = True
-            elif rule.trigger_type == "fuel":
-                triggered = True  # always applies
+    triggered = [rule for rule in _rules_for(carrier, config) if _condition_matches(rule.condition, metrics)]
 
-            if triggered:
-                applied.append({
-                    "name": rule.name,
-                    "trigger_type": rule.trigger_type,
-                    "amount_usd": rule.amount_usd,
-                    "stacking": rule.stacking,
-                })
+    # In each exclusive group, only the highest-priority triggered rule survives.
+    winners: dict[str, SurchargeRule] = {}
+    for rule in triggered:
+        if rule.exclusive_group:
+            current = winners.get(rule.exclusive_group)
+            if current is None or rule.priority > current.priority:
+                winners[rule.exclusive_group] = rule
 
-    elif carrier == "UPS":
-        has_ahs = False
-        has_lps = False
-
-        # AHS: dim >48in OR weight >70lb OR volume >10368in³
-        if (max(length_in, width_in, height_in) > 48 or
-            actual_weight_lb > 70 or
-            volume_in3 > UPS_AHS_VOLUME_THRESHOLD):
-            has_ahs = True
-
-        # LPS: length+girth >130in (AND typically volume >10368)
-        if length_plus_girth > 130:
-            has_lps = True
-
-        # LPS REPLACES AHS (exclusive)
-        if has_lps:
-            lps_rule = UPS_SURCHARGES[1]  # LPS
-            applied.append({
-                "name": lps_rule.name,
-                "trigger_type": lps_rule.trigger_type,
-                "amount_usd": lps_rule.amount_usd,
-                "stacking": lps_rule.stacking,
-            })
-        elif has_ahs:
-            ahs_rule = UPS_SURCHARGES[0]  # AHS
-            applied.append({
-                "name": ahs_rule.name,
-                "trigger_type": ahs_rule.trigger_type,
-                "amount_usd": ahs_rule.amount_usd,
-                "stacking": ahs_rule.stacking,
-            })
-
-        # Fuel always applies
-        applied.append({
-            "name": "UPS Fuel",
-            "trigger_type": "fuel",
-            "amount_usd": 0,
-            "stacking": "chain",
-        })
-
-    elif carrier == "FedEx":
-        has_ahs = False
-        has_oversize = False
-
-        # AHS: dim >48in OR weight >70lb OR volume >10368in³
-        if (max(length_in, width_in, height_in) > 48 or
-            actual_weight_lb > 70 or
-            volume_in3 > FEDEX_AHS_VOLUME_THRESHOLD):
-            has_ahs = True
-
-        # Oversize: length+girth >130in OR volume >17280in³
-        if length_plus_girth > 130 or volume_in3 > FEDEX_OVERSIZE_VOLUME_THRESHOLD:
-            has_oversize = True
-
-        # Oversize REPLACES AHS (exclusive)
-        if has_oversize:
-            oversize_rule = FEDEX_SURCHARGES[1]  # Oversize
-            applied.append({
-                "name": oversize_rule.name,
-                "trigger_type": oversize_rule.trigger_type,
-                "amount_usd": oversize_rule.amount_usd,
-                "stacking": oversize_rule.stacking,
-            })
-        elif has_ahs:
-            ahs_rule = FEDEX_SURCHARGES[0]  # AHS
-            applied.append({
-                "name": ahs_rule.name,
-                "trigger_type": ahs_rule.trigger_type,
-                "amount_usd": ahs_rule.amount_usd,
-                "stacking": ahs_rule.stacking,
-            })
-
-        # Fuel always applies
-        applied.append({
-            "name": "FedEx Fuel",
-            "trigger_type": "fuel",
-            "amount_usd": 0,
-            "stacking": "chain",
-        })
-
-    return applied
+    selected = [
+        rule for rule in triggered
+        if not rule.exclusive_group or winners[rule.exclusive_group] is rule
+    ]
+    return [
+        {
+            "name": rule.name,
+            "trigger_type": rule.trigger_type,
+            "amount_usd": rule.amount_usd,
+            "stacking": rule.stacking,
+        }
+        for rule in selected
+    ]
 
 
 def calculate_total_cost(
@@ -505,6 +459,7 @@ def get_shipping_recommendation(
     box_dimensions: dict,
     total_weight_kg: float,
     destination: str | int = "intl",
+    surcharge_config: Mapping[str, Any] | None = None,
 ) -> dict:
     """Get shipping rate comparison and recommendation for a packed box.
 
@@ -515,6 +470,7 @@ def get_shipping_recommendation(
         box_dimensions: Dict with keys: length_cm, width_cm, height_cm.
         total_weight_kg: Total weight of items in the box.
         destination: Shipping zone ("intl" for DHL, zone 5-8 for UPS/FedEx).
+        surcharge_config: Optional loaded JSON/DB mapping for this calculation.
 
     Returns:
         Dict with keys:
@@ -539,6 +495,8 @@ def get_shipping_recommendation(
     billable_kg_ups = calculate_billable_weight(total_weight_kg, dim_weight_kg_imperial)
     billable_kg_fedex = calculate_billable_weight(total_weight_kg, dim_weight_kg_imperial)
 
+    active_surcharge_config = surcharge_config or SURCHARGE_CONFIG
+
     # Calculate for each carrier
     carriers = ["DHL", "UPS", "FedEx"]
     results = []
@@ -547,19 +505,20 @@ def get_shipping_recommendation(
         if carrier == "DHL":
             bw = billable_kg_dhl
             zone = "intl"
-            fuel = FUEL_SURCHARGE_DHL
         else:
             bw = billable_kg_ups if carrier == "UPS" else billable_kg_fedex
             zone = int(destination) if isinstance(destination, str) and destination.isdigit() else destination
             if isinstance(zone, str):
                 zone = 6  # default zone for MVP
-            fuel = FUEL_SURCHARGE_UPS if carrier == "UPS" else FUEL_SURCHARGE_FEDEX
+        fuel = float(active_surcharge_config["carriers"][carrier]["fuel_rate"])
 
         base_rate = lookup_base_rate(carrier, zone, bw)
         if base_rate is None:
             continue
 
-        surcharges = calculate_surcharges(carrier, L_cm, W_cm, H_cm, total_weight_kg)
+        surcharges = calculate_surcharges(
+            carrier, L_cm, W_cm, H_cm, total_weight_kg, active_surcharge_config
+        )
         total_cost = calculate_total_cost(base_rate, surcharges, fuel)
 
         results.append({

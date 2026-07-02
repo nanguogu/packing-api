@@ -1,0 +1,111 @@
+{
+  "version": 1,
+  "carriers": {
+    "DHL": {
+      "fuel_rate": 0.36,
+      "rules": [
+        {
+          "name": "DHL Oversize",
+          "trigger_type": "oversize",
+          "trigger_condition": "any single dimension > 120cm",
+          "amount_usd": 30,
+          "stacking": "chain",
+          "condition": {"field": "max_dimension_cm", "operator": "gt", "value": 120}
+        },
+        {
+          "name": "DHL Overweight",
+          "trigger_type": "overweight",
+          "trigger_condition": "actual weight > 70kg",
+          "amount_usd": 100,
+          "stacking": "chain",
+          "condition": {"field": "actual_weight_kg", "operator": "gt", "value": 70}
+        },
+        {
+          "name": "DHL Fuel",
+          "trigger_type": "fuel",
+          "trigger_condition": "always",
+          "amount_usd": 0,
+          "stacking": "chain",
+          "condition": {"always": true}
+        }
+      ]
+    },
+    "UPS": {
+      "fuel_rate": 0.46,
+      "rules": [
+        {
+          "name": "UPS AHS (Additional Handling)",
+          "trigger_type": "ahs",
+          "trigger_condition": "any dim > 48in OR actual weight > 70lb OR volume > 10368in3",
+          "amount_usd": 46,
+          "stacking": "independent",
+          "exclusive_group": "package_handling",
+          "priority": 10,
+          "condition": {"any": [
+            {"field": "max_dimension_in", "operator": "gt", "value": 48},
+            {"field": "actual_weight_lb", "operator": "gt", "value": 70},
+            {"field": "volume_in3", "operator": "gt", "value": 10368}
+          ]}
+        },
+        {
+          "name": "UPS LPS (Large Package)",
+          "trigger_type": "lps",
+          "trigger_condition": "length + girth > 130in",
+          "amount_usd": 219,
+          "stacking": "exclusive",
+          "exclusive_group": "package_handling",
+          "priority": 20,
+          "condition": {"field": "length_plus_girth_in", "operator": "gt", "value": 130}
+        },
+        {
+          "name": "UPS Fuel",
+          "trigger_type": "fuel",
+          "trigger_condition": "always",
+          "amount_usd": 0,
+          "stacking": "chain",
+          "condition": {"always": true}
+        }
+      ]
+    },
+    "FedEx": {
+      "fuel_rate": 0.46,
+      "rules": [
+        {
+          "name": "FedEx AHS (Additional Handling)",
+          "trigger_type": "ahs",
+          "trigger_condition": "any dim > 48in OR actual weight > 70lb OR volume > 10368in3",
+          "amount_usd": 46,
+          "stacking": "independent",
+          "exclusive_group": "package_handling",
+          "priority": 10,
+          "condition": {"any": [
+            {"field": "max_dimension_in", "operator": "gt", "value": 48},
+            {"field": "actual_weight_lb", "operator": "gt", "value": 70},
+            {"field": "volume_in3", "operator": "gt", "value": 10368}
+          ]}
+        },
+        {
+          "name": "FedEx Oversize",
+          "trigger_type": "oversize",
+          "trigger_condition": "length + girth > 130in OR volume > 17280in3",
+          "amount_usd": 255,
+          "stacking": "exclusive",
+          "exclusive_group": "package_handling",
+          "priority": 20,
+          "condition": {"any": [
+            {"field": "length_plus_girth_in", "operator": "gt", "value": 130},
+            {"field": "volume_in3", "operator": "gt", "value": 17280}
+          ]}
+        },
+        {
+          "name": "FedEx Fuel",
+          "trigger_type": "fuel",
+          "trigger_condition": "always",
+          "amount_usd": 0,
+          "stacking": "chain",
+          "condition": {"always": true}
+        }
+      ]
+    }
+  }
+}
