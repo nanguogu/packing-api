@@ -19,6 +19,14 @@ Products have diverse shapes/weights → AI automates box sizing to improve spac
 - must_pack overrides must_not when conflicting
 
 ### Shipping Pricing (3 Carriers)
+- Production-facing public quote API: `POST /shipping/quote`
+- Origin scope: Hong Kong export; currency: HKD
+- Current verified lane: Hong Kong → Singapore, Priority
+- Multi-piece shipment: calculate each carton's billable weight, then rate the aggregated shipment weight
+- Versioned public rate card: `app/config/public_rates_hk_2026.json`
+- Unsupported lanes/services/weights return 422 instead of falling back to an invented zone
+
+### Legacy Packing Estimate
 - DHL: Oversize $30 + Overweight $100 (CHAIN stacking) + fuel 36%
 - UPS: AHS $46 OR LPS $219 (LPS REPLACES AHS) + fuel 46%
 - FedEx: AHS $46 OR Oversize $255 (Oversize REPLACES AHS) + fuel 46%
@@ -45,9 +53,12 @@ Products have diverse shapes/weights → AI automates box sizing to improve spac
 
 ## Status
 
-- 171 tests all passing
+- 184 tests all passing
 - D1-D14 complete, D7 (PDF) and D15 (deploy) pending
-- Base rates hardcoded, surcharges in if-else (refactor later)
+- Public logistics quote engine integrated; Singapore Priority full weight bands available
+- Public quote currently excludes special handling, remote-area charges, duties, and taxes
+- Packing requirements are under review; do not treat the current minimum-envelope algorithm as final product behavior
+- Legacy packing estimator base rates remain hardcoded; surcharge rules are JSON-configurable
 - PostgreSQL required for DB-backed endpoints
 
 ## Commands

@@ -16,11 +16,13 @@ packing-api/
 │   ├── schemas.py           # Pydantic request/response schemas
 │   ├── routers/
 │   │   ├── pack.py          # /pack/* endpoints (5 endpoints)
-│   │   └── products.py      # /products CRUD endpoints
+│   │   ├── products.py      # /products CRUD endpoints
+│   │   └── shipping.py      # /shipping/quote public-rate comparison
 │   ├── services/
 │   │   ├── packer.py        # Full packing pipeline orchestration
 │   │   ├── grouper.py       # Grouping constraints (Union-Find)
-│   │   ├── shipping.py      # Shipping pricing engine (3 carriers)
+│   │   ├── shipping.py      # Legacy packing estimate (USD demo tables)
+│   │   ├── public_shipping.py # Versioned HKD public-rate quote engine
 │   │   ├── packing_list.py  # Packing list generation
 │   │   └── viz.py           # 3D visualization HTML generator
 │   └── core/
@@ -47,6 +49,7 @@ packing-api/
 | `/pack/viz` | POST | Interactive 3D visualization | HTML |
 | `/pack/` | POST | Pack by SKUs (requires DB) | JSON |
 | `/pack/detail` | POST | Detailed pack by SKUs (requires DB) | JSON |
+| `/shipping/quote` | POST | Multi-carton public-rate comparison | JSON |
 
 ## Key Technical Decisions
 
@@ -104,6 +107,18 @@ packing-api/
 
 ## Project Status
 
+### Public logistics quotation
+- Integrated on `master` via commits `74a838a` and `54d76db`
+- Hong Kong export, HKD, Hong Kong → Singapore Priority
+- DHL / UPS / FedEx multi-piece shipment comparison
+- Full published Singapore Priority weight bands, including high-weight per-kg rates
+- Unknown lanes and unsupported weights fail explicitly with HTTP 422
+- Special handling, remote-area charges, duties, and taxes remain pending
+
+### Packing product direction
+- The current CP-SAT minimum-envelope implementation remains available and tested
+- Its product requirements are being reopened; do not extend or tightly couple it to public quotation until carton selection, constraints, and objective priorities are reconfirmed
+
 ### Completed (W1 + W2 + W3)
 - D1: Engine (OR-Tools CP-SAT) - 20 tests
 - D2: Verifier (py3dbp cross-check) - 16 tests
@@ -117,12 +132,13 @@ packing-api/
 - D11-D12: 3D visualization (Plotly.js)
 - D13: Packing list generation
 - D14: Integration validation - 23 tests
-- **Total: 171 tests, all passing**
+- **Total: 184 tests, all passing**
 
 ### Pending
 - D7: PDF parsing for shipping rate data (base rates currently hardcoded)
 - D15: Deployment (requires PostgreSQL setup)
-- Surcharge config refactoring (hardcoded if-else → config table)
+- Complete public-rate lanes/services beyond Singapore Priority
+- Public special-handling, remote-area, duties, and tax rules
 - Replace public rates with client negotiated rates
 
 ## Running Tests
