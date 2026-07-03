@@ -91,13 +91,13 @@ class Level1PackingRequest(BaseModel):
 
 
 class Level2PackingRequest(BaseModel):
-    """Level 2: exactly five cuboids, with cost-driven carton splitting."""
+    """Level 2: one to five cuboids, with cost-driven carton splitting."""
     order_id: str = Field(..., min_length=1, max_length=64)
     origin: Literal["HK"] = "HK"
     destination: str = Field(..., min_length=2, max_length=2)
     destination_address: str | None = Field(default=None, max_length=512)
     service_type: Literal["priority"] = "priority"
-    items: list[PackItem] = Field(..., min_length=5, max_length=5)
+    items: list[PackItem] = Field(..., min_length=1, max_length=5)
     time_limit_s: float = Field(
         default=1.5,
         gt=0,

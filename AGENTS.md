@@ -54,15 +54,16 @@ Products have diverse shapes/weights → AI automates box sizing to improve spac
 
 ## Status
 
-- 193 tests all passing
+- 198 tests all passing
 - Level 1 complete: `POST /pack/level1` performs 3-item minimum-volume packing and HK→SG Priority carrier comparison
 - Level 1 guide: `POST /pack/level1/viz` returns an item-by-item interactive 3D work instruction
 - Level 1 layouts enforce floor placement or full single-item support; minimum volume ties prefer smaller edge sum and compact coordinates
 - D1-D14 complete, D7 (PDF) and D15 (deploy) pending
 - Public logistics quote engine integrated; Singapore Priority full weight bands available
 - Public quote includes configured physical handling surcharges; remote-area charges, duties, taxes, and input-dependent packaging fees remain excluded
-- Level 2 complete: `POST /pack/level2` cost-optimizes all 52 partitions of exactly 5 cuboids, comparing minimum-volume and compact-edge carton candidates against public multi-piece shipping rates
+- Level 2 complete: `POST /pack/level2` cost-optimizes every partition of 1-5 cuboids, comparing minimum-volume and compact-edge carton candidates against public multi-piece shipping rates
 - Level 2 guide: `POST /pack/level2/viz` returns the selected multi-carton item-by-item 3D work instruction
+- React/Vite product demo is served at `/ui/` after `npm run build` in `frontend/`; it supports dynamic item entry, quote comparison, alternatives, and an interactive 3D packing guide
 - Level 3 constraints remain pending; legacy minimum-envelope behavior is not the approved cost optimizer
 - Legacy packing estimator base rates remain hardcoded; surcharge rules are JSON-configurable
 - PostgreSQL required for DB-backed endpoints

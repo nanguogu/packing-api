@@ -5,7 +5,9 @@ the application via uvicorn.
 """
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from app.database import Base, engine
 from app.routers import pack, products, shipping
@@ -28,6 +30,10 @@ app = FastAPI(
 app.include_router(pack.router)
 app.include_router(products.router)
 app.include_router(shipping.router)
+
+frontend_dist = Path(__file__).resolve().parents[1] / "frontend" / "dist"
+if frontend_dist.exists():
+    app.mount("/ui", StaticFiles(directory=frontend_dist, html=True), name="frontend")
 
 
 if __name__ == "__main__":

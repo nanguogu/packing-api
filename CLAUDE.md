@@ -9,6 +9,7 @@ Company products have diverse shapes/weights → manual packing is inefficient �
 
 ```
 packing-api/
+├── frontend/              # React + Vite product demo (served at /ui/)
 ├── app/
 │   ├── main.py              # FastAPI entry point (uvicorn)
 │   ├── database.py          # SQLAlchemy + PostgreSQL
@@ -51,6 +52,8 @@ packing-api/
 | `/pack/detail` | POST | Detailed pack by SKUs (requires DB) | JSON |
 | `/pack/level1` | POST | Exactly 3 cuboids → minimum-volume custom carton → public carrier quote | JSON |
 | `/pack/level1/viz` | POST | Level 1 item-by-item interactive 3D packing guide | HTML |
+| `/pack/level2` | POST | Cost-optimize every partition of 1-5 cuboids and compare carriers | JSON |
+| `/pack/level2/viz` | POST | Multi-carton item-by-item interactive 3D packing guide | HTML |
 | `/shipping/quote` | POST | Multi-carton public-rate comparison | JSON |
 
 ## Key Technical Decisions
@@ -120,8 +123,9 @@ packing-api/
 ### Packing product direction
 - Level 1 is approved and implemented: one order, exactly three freely rotatable cuboids, one minimum-volume custom carton, followed by HK→SG Priority public-rate comparison
 - Level 1 requires each item to sit on the floor or be fully supported; equal-volume cartons use edge-sum and coordinate compactness as tie-breakers
-- Level 2 will add rearrangement/split-carton alternatives driven by oversize and overweight cost
+- Level 2 is implemented for 1-5 cuboids, including rearrangement/split-carton alternatives driven by total shipping cost
 - Level 3 will add heavy/fragile/must-pack constraints and compare unrestricted items across constrained groups
+- The React/Vite demo at `/ui/` provides manual item entry, fixed HK-to-SG Priority inputs, carrier comparison, alternatives, and client-side Plotly 3D guidance
 - The legacy edge-sum objective remains available but is not the approved Level 1 optimizer
 
 ### Completed (W1 + W2 + W3)
@@ -137,7 +141,7 @@ packing-api/
 - D11-D12: 3D visualization (Plotly.js)
 - D13: Packing list generation
 - D14: Integration validation - 23 tests
-- **Total: 193 tests, all passing**
+- **Total: 198 tests, all passing**
 
 ### Pending
 - D7: PDF parsing for shipping rate data (base rates currently hardcoded)
@@ -159,6 +163,11 @@ cd packing-api
 # Requires PostgreSQL running with packing_db created
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 # Swagger docs: http://localhost:8000/docs
+# Product demo (after building frontend): http://localhost:8000/ui/
+
+cd frontend
+npm install
+npm run build
 ```
 
 ## Environment Setup

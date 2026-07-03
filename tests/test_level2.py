@@ -1,4 +1,4 @@
-"""Acceptance tests for the five-item cost optimizer."""
+"""Acceptance tests for the one-to-five-item cost optimizer."""
 
 from fastapi.testclient import TestClient
 
@@ -45,6 +45,11 @@ def test_level2_returns_complete_cost_optimized_plan():
         "ITEM-1", "ITEM-2", "ITEM-3", "ITEM-4", "ITEM-5"
     ]
     assert result["recommendation"]["shipping_total"] > 0
+    assert len(result["alternative_plans"]) <= 2
+    assert all(
+        plan["shipping_total"] >= result["recommendation"]["shipping_total"]
+        for plan in result["alternative_plans"]
+    )
     for carton in result["packing"]["cartons"]:
         box = carton["dimensions_cm"]
         for item in carton["layout"]:
@@ -54,9 +59,23 @@ def test_level2_returns_complete_cost_optimized_plan():
             assert position["z"] + size["height"] <= box["height_cm"]
 
 
-def test_level2_requires_exactly_five_items():
+def test_level2_accepts_four_items():
     payload = _order()
     payload["items"] = payload["items"][:4]
+    response = client.post("/pack/level2", json=payload)
+    assert response.status_code == 200, response.text
+    assert response.json()["packing"]["partition_count"] == 15
+
+
+def test_level2_rejects_zero_or_more_than_five_items():
+    payload = _order()
+    payload["items"] = []
+    assert client.post("/pack/level2", json=payload).status_code == 422
+    payload = _order()
+    payload["items"].append({
+        "sku": "ITEM-6", "length_cm": 10, "width_cm": 10,
+        "height_cm": 10, "weight_kg": 1,
+    })
     assert client.post("/pack/level2", json=payload).status_code == 422
 
 

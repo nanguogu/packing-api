@@ -1,4 +1,4 @@
-"""Level 2 MVP: cost-optimize all partitions of exactly five cuboids."""
+"""Level 2 MVP: cost-optimize all partitions of one to five cuboids."""
 
 from __future__ import annotations
 
@@ -63,13 +63,15 @@ def _quote(request: Level2PackingRequest, cartons: list[dict]) -> dict:
 
 
 def optimize_level2_order(request: Level2PackingRequest) -> dict:
-    """Compare every 5-item partition, candidate carton shape, and carrier."""
+    """Compare every item partition, candidate carton shape, and carrier."""
     item_dicts = [item.to_dict() for item in request.items]
+    item_count = len(item_dicts)
     subset_cache: dict[tuple[int, ...], list[dict]] = {}
     evaluated = 0
-    best = None
+    ranked_plans = []
+    partitions = list(_partitions(tuple(range(item_count))))
 
-    for partition in _partitions(tuple(range(5))):
+    for partition in partitions:
         options = []
         feasible = True
         for subset in partition:
@@ -115,13 +117,42 @@ def optimize_level2_order(request: Level2PackingRequest) -> dict:
                 total_volume,
                 total_steps,
             )
-            if best is None or score < best[0]:
-                best = (score, cartons, shipping)
+            ranked_plans.append((score, cartons, shipping))
 
-    if best is None:
+    if not ranked_plans:
         raise ValueError("No feasible Level 2 packing and shipping plan was found")
 
-    score, cartons, shipping = best
+    ranked_plans.sort(key=lambda plan: plan[0])
+    score, cartons, shipping = ranked_plans[0]
+    alternatives = []
+    seen_signatures = {
+        tuple((tuple(carton["item_skus"]), tuple(sorted(carton["dimensions_cm"].values()))) for carton in cartons)
+    }
+    for alternative_score, alternative_cartons, alternative_shipping in ranked_plans[1:]:
+        signature = tuple(
+            (tuple(carton["item_skus"]), tuple(sorted(carton["dimensions_cm"].values())))
+            for carton in alternative_cartons
+        )
+        if signature in seen_signatures:
+            continue
+        seen_signatures.add(signature)
+        alternatives.append({
+            "rank": len(alternatives) + 2,
+            "carton_count": len(alternative_cartons),
+            "carton_strategy": [[*carton["item_skus"]] for carton in alternative_cartons],
+            "cartons": [{
+                "item_skus": carton["item_skus"],
+                "dimensions_cm": carton["dimensions_cm"],
+            } for carton in alternative_cartons],
+            "carrier": alternative_shipping["recommended"]["carrier"],
+            "currency": alternative_shipping["currency"],
+            "shipping_total": alternative_shipping["recommended"]["total"],
+            "additional_cost": round(alternative_score[0] - score[0], 2),
+            "total_carton_volume_cm3": alternative_score[2],
+        })
+        if len(alternatives) == 2:
+            break
+
     return {
         "level": 2,
         "order_id": request.order_id,
@@ -136,7 +167,8 @@ def optimize_level2_order(request: Level2PackingRequest) -> dict:
             "cartons": cartons,
             "total_carton_volume_cm3": score[2],
             "total_actual_weight_kg": round(sum(item.weight_kg for item in request.items), 3),
-            "partition_count": 52,
+            "item_count": item_count,
+            "partition_count": len(partitions),
             "evaluated_plan_count": evaluated,
             "objective": "minimum_shipping_total",
         },
@@ -147,8 +179,9 @@ def optimize_level2_order(request: Level2PackingRequest) -> dict:
             "currency": shipping["currency"],
             "shipping_total": shipping["recommended"]["total"],
         },
+        "alternative_plans": alternatives,
         "scope_notices": [
-            "Level 2 searches all 52 partitions of exactly five cuboids.",
+            f"Level 2 searches all {len(partitions)} partitions of {item_count} cuboid(s).",
             "Each subset compares minimum-volume and compact-edge carton candidates.",
             "Carton manufacturing, padding, labor, remote-area, duties, and taxes are excluded.",
         ],
