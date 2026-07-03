@@ -61,7 +61,9 @@ Products have diverse shapes/weights → AI automates box sizing to improve spac
 - D1-D14 complete, D7 (PDF) and D15 (deploy) pending
 - Public logistics quote engine integrated; Singapore Priority full weight bands available
 - Public quote includes configured physical handling surcharges; remote-area charges, duties, taxes, and input-dependent packaging fees remain excluded
-- Level 2/3 packing requirements remain pending; legacy minimum-envelope behavior is not the approved cost optimizer
+- Level 2 complete: `POST /pack/level2` cost-optimizes all 52 partitions of exactly 5 cuboids, comparing minimum-volume and compact-edge carton candidates against public multi-piece shipping rates
+- Level 2 guide: `POST /pack/level2/viz` returns the selected multi-carton item-by-item 3D work instruction
+- Level 3 constraints remain pending; legacy minimum-envelope behavior is not the approved cost optimizer
 - Legacy packing estimator base rates remain hardcoded; surcharge rules are JSON-configurable
 - PostgreSQL required for DB-backed endpoints
 

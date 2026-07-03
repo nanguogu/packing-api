@@ -90,6 +90,22 @@ class Level1PackingRequest(BaseModel):
     time_limit_s: float = Field(default=8.0, gt=0, le=30)
 
 
+class Level2PackingRequest(BaseModel):
+    """Level 2: exactly five cuboids, with cost-driven carton splitting."""
+    order_id: str = Field(..., min_length=1, max_length=64)
+    origin: Literal["HK"] = "HK"
+    destination: str = Field(..., min_length=2, max_length=2)
+    destination_address: str | None = Field(default=None, max_length=512)
+    service_type: Literal["priority"] = "priority"
+    items: list[PackItem] = Field(..., min_length=5, max_length=5)
+    time_limit_s: float = Field(
+        default=1.5,
+        gt=0,
+        le=10,
+        description="Solver limit for each unique item subset and objective",
+    )
+
+
 class PackRequest(BaseModel):
     """Request body for the /pack endpoint: list of SKUs to pack together."""
     skus: list[str] = Field(..., min_length=1, description="List of product SKUs to pack")

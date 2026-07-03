@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>第 2 层级 3D 装箱指南</title>
+    <!-- GL3D-only bundle is substantially smaller and includes Mesh3d/Scatter3d. -->
+    <script src="https://cdn.jsdelivr.net/npm/plotly.js-gl3d-dist-min@3.1.0/plotly-gl3d.min.js"></script>
+    <style>
+        body { margin: 0; font-family: system-ui, sans-serif; }
+        #viz { width: 100%; height: 85vh; }
+        #controls {
+            padding: 10px 20px;
+            background: #f5f5f5;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        #controls button { padding: 6px 12px; border: 1px solid #ccc; cursor: pointer; }
+        #controls button:hover { background: #ddd; }
+        #info { padding: 8px 20px; font-size: 14px; color: #666; }
+        #guide { padding: 14px 20px; background: #fff; border-bottom: 1px solid #ddd; }
+        #guide h1 { margin: 0 0 8px; font-size: 20px; }
+        #guide p { margin: 4px 0; }
+        #guide ol { margin: 8px 0 0; padding-left: 24px; }
+        #guide li { margin: 5px 0; }
+    </style>
+</head>
+<body>
+    <div id="guide"><h1>第 2 层级 3D 装箱指南 — SG-SIMEI-L2-001</h1><p>最优方案共 <b>1</b> 箱；推荐 <b>DHL</b>；费用 HKD <b>3,053.20</b>。</p><p>坐标均以各纸箱内部左前下角为 (0,0,0)，X/Y/Z 分别沿箱长、箱宽、箱高。</p><h2>纸箱 1 — SG-SIMEI-L2-001-CARTON-1</h2><p>尺寸：<b>100×19×60 cm</b>；重量：23.0 kg；利用率：62.89%。</p><ol><li>第 1 步：放置 <b>ITEM-3</b>；起点 (0.0, 9.0, 0.0) cm；旋转后 60.0×6.0×60.0 cm；LHW（X←原长，Y←原高，Z←原宽）。</li><li>第 2 步：放置 <b>ITEM-4</b>；起点 (0.0, 15.0, 0.0) cm；旋转后 100.0×4.0×50.0 cm；LHW（X←原长，Y←原高，Z←原宽）。</li><li>第 3 步：放置 <b>ITEM-5</b>；起点 (0.0, 0.0, 0.0) cm；旋转后 70.0×4.0×60.0 cm；LHW（X←原长，Y←原高，Z←原宽）。</li><li>第 4 步：放置 <b>ITEM-1</b>；起点 (0.0, 4.0, 0.0) cm；旋转后 50.0×5.0×50.0 cm；LHW（X←原长，Y←原高，Z←原宽）。</li><li>第 5 步：放置 <b>ITEM-2</b>；起点 (0.0, 4.0, 50.0) cm；旋转后 20.0×4.0×10.0 cm；LHW（X←原长，Y←原高，Z←原宽）。</li></ol></div>
+    <div id="controls">
+        <button onclick="stepBack()">Back</button>
+        <button onclick="stepForward()">Forward</button>
+        <button onclick="resetView()">Reset View</button>
+        <button onclick="toggleAll()">Show All</button>
+    </div>
+    <div id="info"></div>
+    <div id="viz"></div>
+
+    <script>
+    // Packing data
+    window.BOXVIZ_DATA = {"stepGroups": [[12], [13], [14], [15], [16]], "groupKinds": ["rigid", "rigid", "rigid", "rigid", "rigid"], "groupClasses": ["item", "item", "item", "item", "item"], "rigidAll": [12, 13, 14, 15, 16], "totals": {"item": 5}, "uniqColorList": ["#ff8c00", "#1f77b4", "#2ca02c", "#d62728", "#9467bd"], "fitEye": {"x": 0, "y": -2.5, "z": 1.5}, "aspect": {"x": 1.0, "y": 0.55, "z": 0.55}, "hasRubble": false};
+
+    var traces = [{"type": "scatter3d", "mode": "lines", "x": [0.0, 100.0], "y": [0, 0], "z": [0, 0], "line": {"width": 2, "color": "#555"}, "hoverinfo": "skip", "showlegend": false}, {"type": "scatter3d", "mode": "lines", "x": [100.0, 100.0], "y": [0, 19], "z": [0, 0], "line": {"width": 2, "color": "#555"}, "hoverinfo": "skip", "showlegend": false}, {"type": "scatter3d", "mode": "lines", "x": [100.0, 0.0], "y": [19, 19], "z": [0, 0], "line": {"width": 2, "color": "#555"}, "hoverinfo": "skip", "showlegend": false}, {"type": "scatter3d", "mode": "lines", "x": [0.0, 0.0], "y": [19, 0], "z": [0, 0], "line": {"width": 2, "color": "#555"}, "hoverinfo": "skip", "showlegend": false}, {"type": "scatter3d", "mode": "lines", "x": [0.0, 100.0], "y": [0, 0], "z": [60, 60], "line": {"width": 2, "color": "#555"}, "hoverinfo": "skip", "showlegend": false}, {"type": "scatter3d", "mode": "lines", "x": [100.0, 100.0], "y": [0, 19], "z": [60, 60], "line": {"width": 2, "color": "#555"}, "hoverinfo": "skip", "showlegend": false}, {"type": "scatter3d", "mode": "lines", "x": [100.0, 0.0], "y": [19, 19], "z": [60, 60], "line": {"width": 2, "color": "#555"}, "hoverinfo": "skip", "showlegend": false}, {"type": "scatter3d", "mode": "lines", "x": [0.0, 0.0], "y": [19, 0], "z": [60, 60], "line": {"width": 2, "color": "#555"}, "hoverinfo": "skip", "showlegend": false}, {"type": "scatter3d", "mode": "lines", "x": [0.0, 0.0], "y": [0, 0], "z": [0, 60], "line": {"width": 2, "color": "#555"}, "hoverinfo": "skip", "showlegend": false}, {"type": "scatter3d", "mode": "lines", "x": [100.0, 100.0], "y": [0, 0], "z": [0, 60], "line": {"width": 2, "color": "#555"}, "hoverinfo": "skip", "showlegend": false}, {"type": "scatter3d", "mode": "lines", "x": [100.0, 100.0], "y": [19, 19], "z": [0, 60], "line": {"width": 2, "color": "#555"}, "hoverinfo": "skip", "showlegend": false}, {"type": "scatter3d", "mode": "lines", "x": [0.0, 0.0], "y": [19, 19], "z": [0, 60], "line": {"width": 2, "color": "#555"}, "hoverinfo": "skip", "showlegend": false}, {"type": "mesh3d", "x": [0.0, 60.0, 0.0, 60.0, 0.0, 60.0, 0.0, 60.0], "y": [9.0, 9.0, 15.0, 15.0, 9.0, 9.0, 15.0, 15.0], "z": [0.0, 0.0, 0.0, 0.0, 60.0, 60.0, 60.0, 60.0], "i": [0, 0, 4, 4, 0, 0, 2, 2, 0, 0, 1, 1], "j": [1, 3, 6, 7, 4, 5, 3, 7, 2, 6, 5, 7], "k": [3, 2, 7, 5, 5, 1, 7, 6, 6, 4, 7, 3], "color": "#ff8c00", "opacity": 0.85, "flatshading": false, "lighting": {"ambient": 1.0, "diffuse": 0.2, "specular": 0.0}, "hovertext": "ITEM-3<br>Position: (0.0, 9.0, 0.0)<br>Dims: 60.0x6.0x60.0 cm<br>Rotation: LHW<br>Weight: 4.0 kg", "hoverinfo": "text", "name": "ITEM-3", "showlegend": true}, {"type": "mesh3d", "x": [0.0, 100.0, 0.0, 100.0, 0.0, 100.0, 0.0, 100.0], "y": [15.0, 15.0, 19.0, 19.0, 15.0, 15.0, 19.0, 19.0], "z": [0.0, 0.0, 0.0, 0.0, 50.0, 50.0, 50.0, 50.0], "i": [0, 0, 4, 4, 0, 0, 2, 2, 0, 0, 1, 1], "j": [1, 3, 6, 7, 4, 5, 3, 7, 2, 6, 5, 7], "k": [3, 2, 7, 5, 5, 1, 7, 6, 6, 4, 7, 3], "color": "#1f77b4", "opacity": 0.85, "flatshading": false, "lighting": {"ambient": 1.0, "diffuse": 0.2, "specular": 0.0}, "hovertext": "ITEM-4<br>Position: (0.0, 15.0, 0.0)<br>Dims: 100.0x4.0x50.0 cm<br>Rotation: LHW<br>Weight: 6.0 kg", "hoverinfo": "text", "name": "ITEM-4", "showlegend": true}, {"type": "mesh3d", "x": [0.0, 70.0, 0.0, 70.0, 0.0, 70.0, 0.0, 70.0], "y": [0.0, 0.0, 4.0, 4.0, 0.0, 0.0, 4.0, 4.0], "z": [0.0, 0.0, 0.0, 0.0, 60.0, 60.0, 60.0, 60.0], "i": [0, 0, 4, 4, 0, 0, 2, 2, 0, 0, 1, 1], "j": [1, 3, 6, 7, 4, 5, 3, 7, 2, 6, 5, 7], "k": [3, 2, 7, 5, 5, 1, 7, 6, 6, 4, 7, 3], "color": "#2ca02c", "opacity": 0.85, "flatshading": false, "lighting": {"ambient": 1.0, "diffuse": 0.2, "specular": 0.0}, "hovertext": "ITEM-5<br>Position: (0.0, 0.0, 0.0)<br>Dims: 70.0x4.0x60.0 cm<br>Rotation: LHW<br>Weight: 5.0 kg", "hoverinfo": "text", "name": "ITEM-5", "showlegend": true}, {"type": "mesh3d", "x": [0.0, 50.0, 0.0, 50.0, 0.0, 50.0, 0.0, 50.0], "y": [4.0, 4.0, 9.0, 9.0, 4.0, 4.0, 9.0, 9.0], "z": [0.0, 0.0, 0.0, 0.0, 50.0, 50.0, 50.0, 50.0], "i": [0, 0, 4, 4, 0, 0, 2, 2, 0, 0, 1, 1], "j": [1, 3, 6, 7, 4, 5, 3, 7, 2, 6, 5, 7], "k": [3, 2, 7, 5, 5, 1, 7, 6, 6, 4, 7, 3], "color": "#d62728", "opacity": 0.85, "flatshading": false, "lighting": {"ambient": 1.0, "diffuse": 0.2, "specular": 0.0}, "hovertext": "ITEM-1<br>Position: (0.0, 4.0, 0.0)<br>Dims: 50.0x5.0x50.0 cm<br>Rotation: LHW<br>Weight: 5.0 kg", "hoverinfo": "text", "name": "ITEM-1", "showlegend": true}, {"type": "mesh3d", "x": [0.0, 20.0, 0.0, 20.0, 0.0, 20.0, 0.0, 20.0], "y": [4.0, 4.0, 8.0, 8.0, 4.0, 4.0, 8.0, 8.0], "z": [50.0, 50.0, 50.0, 50.0, 60.0, 60.0, 60.0, 60.0], "i": [0, 0, 4, 4, 0, 0, 2, 2, 0, 0, 1, 1], "j": [1, 3, 6, 7, 4, 5, 3, 7, 2, 6, 5, 7], "k": [3, 2, 7, 5, 5, 1, 7, 6, 6, 4, 7, 3], "color": "#9467bd", "opacity": 0.85, "flatshading": false, "lighting": {"ambient": 1.0, "diffuse": 0.2, "specular": 0.0}, "hovertext": "ITEM-2<br>Position: (0.0, 4.0, 50.0)<br>Dims: 20.0x4.0x10.0 cm<br>Rotation: LHW<br>Weight: 3.0 kg", "hoverinfo": "text", "name": "ITEM-2", "showlegend": true}];
+    var currentStep = 0;
+    var steps = window.BOXVIZ_DATA.stepGroups;
+
+    // Layout configuration
+    var layout = {
+        scene: {
+            xaxis: {title: 'Length (cm)', showgrid: true, nticks: 6},
+            yaxis: {title: 'Width (cm)', showgrid: true, nticks: 6},
+            zaxis: {title: 'Height (cm)', showgrid: true, nticks: 6},
+            camera: {
+                eye: {x: window.BOXVIZ_DATA.fitEye.x,
+                       y: window.BOXVIZ_DATA.fitEye.y,
+                       z: window.BOXVIZ_DATA.fitEye.z}
+            },
+            aspectratio: {
+                x: window.BOXVIZ_DATA.aspect.x,
+                y: window.BOXVIZ_DATA.aspect.y,
+                z: window.BOXVIZ_DATA.aspect.z
+            }
+        },
+        margin: {l: 0, r: 0, t: 30, b: 0},
+        title: "\u7b2c 2 \u5c42\u7ea7 3D \u88c5\u7bb1\u6307\u5357"
+    };
+
+    // Initially hide all item traces (wireframe always visible)
+    for (var i = 0; i < traces.length; i++) {
+        if (traces[i].type === 'mesh3d') {
+            traces[i].visible = false;
+        }
+    }
+
+    if (typeof Plotly === 'undefined') {
+        document.getElementById('info').textContent =
+            'Visualization library failed to load. Check the network connection and reload.';
+        document.getElementById('viz').innerHTML =
+            '<div style="padding:24px;color:#b00020">Unable to load the 3D renderer.</div>';
+    } else {
+        Plotly.newPlot('viz', traces, layout);
+    }
+
+    function stepForward() {
+        if (typeof Plotly === 'undefined') return;
+        if (currentStep < steps.length) {
+            var indices = steps[currentStep];
+            for (var idx of indices) {
+                Plotly.restyle('viz', {visible: true}, [idx]);
+            }
+            currentStep++;
+            updateInfo();
+        }
+    }
+
+    function stepBack() {
+        if (typeof Plotly === 'undefined') return;
+        if (currentStep > 0) {
+            currentStep--;
+            var indices = steps[currentStep];
+            for (var idx of indices) {
+                Plotly.restyle('viz', {visible: false}, [idx]);
+            }
+            updateInfo();
+        }
+    }
+
+    function resetView() {
+        if (typeof Plotly === 'undefined') return;
+        currentStep = 0;
+        for (var i = 0; i < traces.length; i++) {
+            if (traces[i].type === 'mesh3d') {
+                Plotly.restyle('viz', {visible: false}, [i]);
+            }
+        }
+        Plotly.relayout('viz', {
+            'scene.camera.eye': {x: window.BOXVIZ_DATA.fitEye.x,
+                                   y: window.BOXVIZ_DATA.fitEye.y,
+                                   z: window.BOXVIZ_DATA.fitEye.z}
+        });
+        updateInfo();
+    }
+
+    function toggleAll() {
+        if (typeof Plotly === 'undefined') return;
+        currentStep = steps.length;
+        for (var i = 0; i < traces.length; i++) {
+            if (traces[i].type === 'mesh3d') {
+                Plotly.restyle('viz', {visible: true}, [i]);
+            }
+        }
+        updateInfo();
+    }
+
+    function updateInfo() {
+        var totalItems = window.BOXVIZ_DATA.totals.item || 0;
+        var shown = 0;
+        for (var s = 0; s < currentStep; s++) {
+            shown += steps[s].length;
+        }
+        document.getElementById('info').textContent =
+            'Step ' + currentStep + '/' + steps.length +
+            ' | Items shown: ' + shown + '/' + totalItems;
+    }
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowRight') stepForward();
+        if (e.key === 'ArrowLeft') stepBack();
+        if (e.key === 'r' || e.key === 'R') resetView();
+        if (e.key === 'a' || e.key === 'A') toggleAll();
+    });
+
+    updateInfo();
+    </script>
+</body>
+</html>

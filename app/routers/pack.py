@@ -10,8 +10,9 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Product, GroupRule
-from app.schemas import Level1PackingRequest, PackRequest, PackResponse, PackDirectRequest
+from app.schemas import Level1PackingRequest, Level2PackingRequest, PackRequest, PackResponse, PackDirectRequest
 from app.services.level1 import generate_level1_guide_html, optimize_level1_order
+from app.services.level2 import generate_level2_guide_html, optimize_level2_order
 from app.services.public_shipping import QuoteUnavailable
 from app.services.packer import pack_items
 from app.services.packing_list import generate_packing_list, generate_packing_list_text
@@ -37,6 +38,24 @@ def pack_level1_viz(request: Level1PackingRequest):
     try:
         result = optimize_level1_order(request)
         return HTMLResponse(content=generate_level1_guide_html(result), status_code=200)
+    except (QuoteUnavailable, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/level2")
+def pack_level2(request: Level2PackingRequest):
+    """Cost-optimize all partitions and carton candidates for five cuboids."""
+    try:
+        return optimize_level2_order(request)
+    except (QuoteUnavailable, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/level2/viz", response_class=HTMLResponse)
+def pack_level2_viz(request: Level2PackingRequest):
+    """Render the selected Level 2 multi-carton work instruction."""
+    try:
+        return HTMLResponse(generate_level2_guide_html(optimize_level2_order(request)))
     except (QuoteUnavailable, ValueError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
