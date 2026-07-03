@@ -26,6 +26,21 @@ def _singapore_order() -> dict:
     }
 
 
+def _simei_order() -> dict:
+    return {
+        "order_id": "SG-SIMEI-001",
+        "origin": "HK",
+        "destination": "SG",
+        "destination_address": "Singapore Simei MRT Station",
+        "service_type": "priority",
+        "items": [
+            {"sku": "ITEM-1", "length_cm": 50, "width_cm": 50, "height_cm": 5, "weight_kg": 5},
+            {"sku": "ITEM-2", "length_cm": 20, "width_cm": 10, "height_cm": 4, "weight_kg": 3},
+            {"sku": "ITEM-3", "length_cm": 60, "width_cm": 60, "height_cm": 6, "weight_kg": 4},
+        ],
+    }
+
+
 def test_level1_singapore_order_returns_optimal_single_carton_and_quote():
     response = client.post("/pack/level1", json=_singapore_order())
     assert response.status_code == 200
@@ -65,6 +80,24 @@ def test_level1_layout_stays_inside_returned_carton():
         assert position["z"] + size["height"] <= box["height_cm"]
 
 
+def test_level1_each_item_is_on_floor_or_fully_supported():
+    layout = client.post("/pack/level1", json=_singapore_order()).json()["packing"]["layout"]
+    for item in layout:
+        if item["position"]["z"] == 0:
+            continue
+        x1, y1 = item["position"]["x"], item["position"]["y"]
+        x2 = x1 + item["placed_dims"]["length"]
+        y2 = y1 + item["placed_dims"]["width"]
+        assert any(
+            item["position"]["z"] == lower["position"]["z"] + lower["placed_dims"]["height"]
+            and x1 >= lower["position"]["x"]
+            and x2 <= lower["position"]["x"] + lower["placed_dims"]["length"]
+            and y1 >= lower["position"]["y"]
+            and y2 <= lower["position"]["y"] + lower["placed_dims"]["width"]
+            for lower in layout if lower is not item
+        )
+
+
 def test_level1_requires_exactly_three_items():
     payload = _singapore_order()
     payload["items"] = payload["items"][:2]
@@ -88,7 +121,22 @@ def test_level1_3d_guide_contains_item_by_item_instructions():
     assert "第 1 步：放置 <b>ITEM-3</b>" in html
     assert "第 2 步：放置 <b>ITEM-1</b>" in html
     assert "第 3 步：放置 <b>ITEM-2</b>" in html
+    assert "纸箱内部左前下角为 (0,0,0)" in html
+    assert "方向代码由原始长(L)、宽(W)、高(H)依次对应 X、Y、Z 轴组成" in html
     assert "UPS" in html
     data_match = re.search(r"window\.BOXVIZ_DATA = (.*?);", html)
     data = json.loads(data_match.group(1))
     assert data["stepGroups"] == [[12], [13], [14]]
+
+
+def test_level1_simei_sample_prefers_balanced_minimum_volume_carton():
+    response = client.post("/pack/level1", json=_simei_order())
+    assert response.status_code == 200
+    result = response.json()
+    assert sorted(result["packing"]["carton"]["dimensions_cm"].values()) == [11, 60, 60]
+    assert result["packing"]["carton"]["volume_cm3"] == 39_600
+    assert result["packing"]["utilization"] == 0.8813
+    assert all(item["position"]["z"] == 0 for item in result["packing"]["layout"])
+    assert result["recommendation"]["carrier"] == "DHL"
+    assert result["recommendation"]["shipping_total"] == 2049.52
+    assert result["packing"]["solve_time_ms"] < 1000

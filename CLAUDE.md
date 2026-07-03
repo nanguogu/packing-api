@@ -119,6 +119,7 @@ packing-api/
 
 ### Packing product direction
 - Level 1 is approved and implemented: one order, exactly three freely rotatable cuboids, one minimum-volume custom carton, followed by HK→SG Priority public-rate comparison
+- Level 1 requires each item to sit on the floor or be fully supported; equal-volume cartons use edge-sum and coordinate compactness as tie-breakers
 - Level 2 will add rearrangement/split-carton alternatives driven by oversize and overweight cost
 - Level 3 will add heavy/fragile/must-pack constraints and compare unrestricted items across constrained groups
 - The legacy edge-sum objective remains available but is not the approved Level 1 optimizer
@@ -136,7 +137,7 @@ packing-api/
 - D11-D12: 3D visualization (Plotly.js)
 - D13: Packing list generation
 - D14: Integration validation - 23 tests
-- **Total: 191 tests, all passing**
+- **Total: 193 tests, all passing**
 
 ### Pending
 - D7: PDF parsing for shipping rate data (base rates currently hardcoded)

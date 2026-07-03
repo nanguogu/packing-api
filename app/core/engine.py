@@ -33,6 +33,7 @@ def calculate_min_box(
     workers: int = 8,
     upright_only: bool = False,
     objective: str = "edge_sum",
+    require_support: bool = False,
 ) -> dict | None:
     """Calculate the minimum bounding box for a set of rectangular items.
 
@@ -52,6 +53,8 @@ def calculate_min_box(
         upright_only: If True, only allow 2 rotation types (no flipping).
         objective: ``edge_sum`` for legacy behavior or ``volume`` for the
             smallest custom carton by cubic volume.
+        require_support: If True, every item must sit on the carton floor or
+            be fully supported by the top face of one other item.
 
     Returns:
         Dict with keys:
@@ -126,6 +129,23 @@ def calculate_min_box(
 
             model.AddBoolOr([bix, biy, biz, bjx, bjy, bjz])
 
+    if require_support:
+        for i in range(n):
+            on_floor = model.NewBoolVar(f"floor_{i}")
+            model.Add(z[i] == 0).OnlyEnforceIf(on_floor)
+            support_options = [on_floor]
+            for j in range(n):
+                if i == j:
+                    continue
+                supported_by_j = model.NewBoolVar(f"support_{i}_by_{j}")
+                model.Add(z[i] == z[j] + sz[j]).OnlyEnforceIf(supported_by_j)
+                model.Add(x[i] >= x[j]).OnlyEnforceIf(supported_by_j)
+                model.Add(x[i] + sx[i] <= x[j] + sx[j]).OnlyEnforceIf(supported_by_j)
+                model.Add(y[i] >= y[j]).OnlyEnforceIf(supported_by_j)
+                model.Add(y[i] + sy[i] <= y[j] + sy[j]).OnlyEnforceIf(supported_by_j)
+                support_options.append(supported_by_j)
+            model.Add(sum(support_options) == 1)
+
     # Objective: minimize packing envelope
     maxX = model.NewIntVar(0, max_L, "maxX")
     maxY = model.NewIntVar(0, max_W, "maxY")
@@ -154,9 +174,33 @@ def calculate_min_box(
 
     start = time.time()
     status = solver.Solve(model)
+    primary_status = status
+
+    # Volume can have many equivalent factorisations (for example a very long,
+    # thin carton and a balanced carton with the same cubic volume). Once the
+    # minimum volume is proven, prefer the smaller edge sum and then compact
+    # coordinates without ever sacrificing that primary optimum.
+    tie_break_status = None
+    if objective == "volume" and status == cp_model.OPTIMAL:
+        optimal_volume = solver.Value(volume)
+        model.Add(volume == optimal_volume)
+        coordinate_sum = sum(x) + sum(y) + sum(z)
+        coordinate_bound = 3 * n * max_axis
+        model.Minimize(
+            (maxX + maxY + maxZ) * (coordinate_bound + 1) + coordinate_sum
+        )
+        remaining_s = time_limit_s - (time.time() - start)
+        if remaining_s > 0.05:
+            tie_solver = cp_model.CpSolver()
+            tie_solver.parameters.max_time_in_seconds = remaining_s
+            tie_solver.parameters.num_search_workers = workers
+            tie_break_status = tie_solver.Solve(model)
+            if tie_break_status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+                solver = tie_solver
+
     elapsed_ms = int((time.time() - start) * 1000)
 
-    if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+    if primary_status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
         return None
 
     # Extract results — convert mm back to cm
@@ -234,8 +278,14 @@ def calculate_min_box(
         "layout": layout,
         "utilization": utilization,
         "solve_time_ms": elapsed_ms,
-        "status": "OPTIMAL" if status == cp_model.OPTIMAL else "FEASIBLE",
+        "status": "OPTIMAL" if primary_status == cp_model.OPTIMAL else "FEASIBLE",
+        "tie_break_status": (
+            "OPTIMAL" if tie_break_status == cp_model.OPTIMAL
+            else "FEASIBLE" if tie_break_status == cp_model.FEASIBLE
+            else None
+        ),
         "objective": objective,
+        "support_required": require_support,
     }
 
 

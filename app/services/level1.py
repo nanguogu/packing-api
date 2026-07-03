@@ -10,6 +10,16 @@ from app.services.public_shipping import quote_public_shipment
 from app.services.viz import generate_3d_html
 
 
+_ROTATION_DESCRIPTIONS = {
+    "LWH": "X←原长，Y←原宽，Z←原高",
+    "LHW": "X←原长，Y←原高，Z←原宽",
+    "WLH": "X←原宽，Y←原长，Z←原高",
+    "WHL": "X←原宽，Y←原高，Z←原长",
+    "HLW": "X←原高，Y←原长，Z←原宽",
+    "HWL": "X←原高，Y←原宽，Z←原长",
+}
+
+
 def _placement_order(layout: list[dict]) -> list[dict]:
     """Return a stable bottom-up, large-before-small physical placement order."""
     ordered = sorted(
@@ -32,6 +42,7 @@ def optimize_level1_order(request: Level1PackingRequest) -> dict:
         items,
         time_limit_s=request.time_limit_s,
         objective="volume",
+        require_support=True,
     )
     if not packing or not packing.get("success"):
         raise ValueError("No feasible single-carton layout was found")
@@ -104,12 +115,14 @@ def generate_level1_guide_html(result: dict) -> str:
         instruction_items.append(
             "<li>第 {step} 步：放置 <b>{sku}</b>；起点坐标 "
             "({x:.1f}, {y:.1f}, {z:.1f}) cm；旋转后尺寸 "
-            "{length:.1f}×{width:.1f}×{height:.1f} cm；方向代码 {rotation}。</li>".format(
+            "{length:.1f}×{width:.1f}×{height:.1f} cm；方向代码 "
+            "{rotation}（{rotation_description}）。</li>".format(
                 step=item["step"],
                 sku=escape(item["sku"]),
                 x=position["x"], y=position["y"], z=position["z"],
                 length=size["length"], width=size["width"], height=size["height"],
                 rotation=escape(item["rotation"]),
+                rotation_description=_ROTATION_DESCRIPTIONS[item["rotation"]],
             )
         )
     guide_html = (
@@ -118,6 +131,10 @@ def generate_level1_guide_html(result: dict) -> str:
         f"空间利用率：<b>{result['packing']['utilization']:.2%}</b>。</p>"
         f"<p>推荐物流：<b>{escape(recommendation['carrier'])}</b>；"
         f"费用：{escape(recommendation['currency'])} <b>{recommendation['shipping_total']:,.2f}</b>。</p>"
+        "<p><b>坐标说明：</b>纸箱内部左前下角为 (0,0,0)；X 沿箱长，Y 沿箱宽，Z 向上沿箱高。"
+        "每件货物的“起点坐标”是其旋转后外接长方体的左前下角。</p>"
+        "<p><b>旋转后尺寸：</b>货物按方向代码旋转后，分别沿 X、Y、Z 轴占用的长度。"
+        "方向代码由原始长(L)、宽(W)、高(H)依次对应 X、Y、Z 轴组成。</p>"
         f"<ol>{''.join(instruction_items)}</ol>"
     )
     packer_result = {
