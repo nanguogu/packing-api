@@ -74,4 +74,45 @@ def test_high_weight_multiplier_rates_and_shipment_rounding():
     assert carriers["UPS"]["base_rate"] == 7569
     assert carriers["FedEx"]["shipment_billable_weight_kg"] == 86.5
     assert carriers["FedEx"]["base_rate"] == 8243.45
+    assert carriers["FedEx"]["surcharge_total"] == 467.4
+    assert [item["code"] for item in carriers["FedEx"]["surcharges"]] == [
+        "AHS_DIMENSION", "AHS_DIMENSION"
+    ]
+    assert carriers["FedEx"]["total"] == 12502.84
     assert result["recommended"] == {"carrier": "DHL", "total": 11003.76}
+
+
+def test_physical_surcharges_are_per_package_and_exclusive():
+    payload = {
+        "origin": "HK",
+        "destination": "SG",
+        "service_type": "priority",
+        "packages": [
+            {"reference": "BIG", "length_cm": 100, "width_cm": 100, "height_cm": 100, "weight_kg": 1}
+        ],
+    }
+    response = client.post("/shipping/quote", json=payload)
+    assert response.status_code == 200
+    carriers = {item["carrier"]: item for item in response.json()["carriers"]}
+
+    assert [item["code"] for item in carriers["DHL"]["surcharges"]] == ["OVERWEIGHT_PIECE"]
+    assert carriers["DHL"]["surcharge_total"] == 920
+    assert [item["code"] for item in carriers["UPS"]["surcharges"]] == ["OVER_MAXIMUM_LIMITS"]
+    assert carriers["UPS"]["surcharge_total"] == 2178
+    assert [item["code"] for item in carriers["FedEx"]["surcharges"]] == ["UNAUTHORIZED_PACKAGE"]
+    assert carriers["FedEx"]["surcharge_total"] == 2193
+
+
+def test_fedex_dimension_surcharge_enforces_18kg_minimum():
+    payload = {
+        "origin": "HK",
+        "destination": "SG",
+        "service_type": "priority",
+        "packages": [
+            {"reference": "LONG", "length_cm": 122, "width_cm": 10, "height_cm": 10, "weight_kg": 1}
+        ],
+    }
+    result = client.post("/shipping/quote", json=payload).json()
+    fedex = next(item for item in result["carriers"] if item["carrier"] == "FedEx")
+    assert fedex["packages"][0]["billable_weight_kg"] == 18
+    assert fedex["surcharges"][0]["code"] == "AHS_DIMENSION"

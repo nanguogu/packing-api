@@ -44,6 +44,59 @@ def _package_billable_weight(package: Any, increment: float) -> dict[str, float]
     }
 
 
+def _package_metrics(package: Any, weights: dict[str, float]) -> dict[str, float]:
+    longest, second, shortest = sorted(
+        (package.length_cm, package.width_cm, package.height_cm), reverse=True
+    )
+    return {
+        "actual_weight_kg": package.weight_kg,
+        "billable_weight_kg": weights["billable_weight_kg"],
+        "longest_cm": longest,
+        "second_longest_cm": second,
+        "shortest_cm": shortest,
+        "length_girth_cm": longest + 2 * second + 2 * shortest,
+        "volume_cm3": package.length_cm * package.width_cm * package.height_cm,
+    }
+
+
+def _condition_matches(condition: dict[str, Any], metrics: dict[str, float]) -> bool:
+    if "any" in condition:
+        return any(_condition_matches(item, metrics) for item in condition["any"])
+    if "all" in condition:
+        return all(_condition_matches(item, metrics) for item in condition["all"])
+    value = metrics[condition["field"]]
+    expected = float(condition["value"])
+    return {
+        "gt": value > expected,
+        "gte": value >= expected,
+        "lt": value < expected,
+        "lte": value <= expected,
+    }[condition["operator"]]
+
+
+def _package_surcharges(
+    package: Any, weights: dict[str, float], rules: list[dict[str, Any]]
+) -> tuple[list[dict[str, Any]], float]:
+    metrics = _package_metrics(package, weights)
+    triggered = [rule for rule in rules if _condition_matches(rule["condition"], metrics)]
+    winners: dict[str, dict[str, Any]] = {}
+    selected: list[dict[str, Any]] = []
+    for rule in triggered:
+        group = rule.get("exclusive_group")
+        if not group:
+            selected.append(rule)
+            continue
+        current = winners.get(group)
+        if current is None or int(rule.get("priority", 0)) > int(current.get("priority", 0)):
+            winners[group] = rule
+    selected.extend(winners.values())
+    minimum_billable = max(
+        (float(rule.get("minimum_billable_weight_kg", 0)) for rule in triggered),
+        default=0,
+    )
+    return selected, minimum_billable
+
+
 def _lookup_rate(service: dict[str, Any], zone: str, weight: float) -> float:
     table = service["rates"][zone]
     key = f"{weight:.1f}"
@@ -81,9 +134,30 @@ def quote_public_shipment(request: Any) -> dict[str, Any]:
 
         increment = float(service["rounding_increment_kg"])
         packages = []
+        applied_surcharges: list[dict[str, Any]] = []
         for package in request.packages:
             weights = _package_billable_weight(package, increment)
-            packages.append({"reference": package.reference, **weights})
+            package_rules, minimum_billable = _package_surcharges(
+                package, weights, carrier.get("surcharge_rules", [])
+            )
+            if minimum_billable > weights["billable_weight_kg"]:
+                weights["billable_weight_kg"] = _round_up(minimum_billable, increment)
+            package_surcharges = []
+            for rule in package_rules:
+                item = {
+                    "code": rule["code"],
+                    "name": rule["name"],
+                    "package_reference": package.reference,
+                    "amount": float(rule["amount_hkd"]),
+                    "fuel_applicable": bool(rule.get("fuel_applicable", False)),
+                }
+                package_surcharges.append(item)
+                applied_surcharges.append(item)
+            packages.append({
+                "reference": package.reference,
+                **weights,
+                "surcharges": package_surcharges,
+            })
 
         # Published multi-piece rules rate one shipment using the sum of each
         # package's independently determined billable weight.
@@ -93,9 +167,12 @@ def quote_public_shipment(request: Any) -> dict[str, Any]:
         )
         base = _lookup_rate(service, zone, shipment_weight)
         fuel_rate = float(carrier["fuel_rate"])
-        fuel_base = base
+        surcharge_total = sum(item["amount"] for item in applied_surcharges)
+        fuel_base = base + sum(
+            item["amount"] for item in applied_surcharges if item["fuel_applicable"]
+        )
         fuel = round(fuel_base * fuel_rate, 2)
-        total = round(base + fuel, 2)
+        total = round(base + surcharge_total + fuel, 2)
         carrier_results.append({
             "carrier": carrier_name,
             "available": True,
@@ -105,7 +182,8 @@ def quote_public_shipment(request: Any) -> dict[str, Any]:
             "packages": packages,
             "shipment_billable_weight_kg": round(shipment_weight, 3),
             "base_rate": round(base, 2),
-            "surcharges": [],
+            "surcharges": applied_surcharges,
+            "surcharge_total": round(surcharge_total, 2),
             "fuel_base": round(fuel_base, 2),
             "fuel_rate": fuel_rate,
             "fuel_surcharge": fuel,
