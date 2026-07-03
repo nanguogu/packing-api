@@ -50,6 +50,7 @@ packing-api/
 | `/pack/` | POST | Pack by SKUs (requires DB) | JSON |
 | `/pack/detail` | POST | Detailed pack by SKUs (requires DB) | JSON |
 | `/pack/level1` | POST | Exactly 3 cuboids → minimum-volume custom carton → public carrier quote | JSON |
+| `/pack/level1/viz` | POST | Level 1 item-by-item interactive 3D packing guide | HTML |
 | `/shipping/quote` | POST | Multi-carton public-rate comparison | JSON |
 
 ## Key Technical Decisions
@@ -135,7 +136,7 @@ packing-api/
 - D11-D12: 3D visualization (Plotly.js)
 - D13: Packing list generation
 - D14: Integration validation - 23 tests
-- **Total: 190 tests, all passing**
+- **Total: 191 tests, all passing**
 
 ### Pending
 - D7: PDF parsing for shipping rate data (base rates currently hardcoded)

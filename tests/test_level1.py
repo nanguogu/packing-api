@@ -1,5 +1,8 @@
 """End-to-end acceptance tests for the Level 1 packing and quote flow."""
 
+import json
+import re
+
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -45,6 +48,10 @@ def test_level1_singapore_order_returns_optimal_single_carton_and_quote():
         "shipping_total": 15503.74,
     }
     assert len(result["shipping"]["carriers"]) == 3
+    assert [item["sku"] for item in result["packing"]["layout"]] == [
+        "ITEM-3", "ITEM-1", "ITEM-2"
+    ]
+    assert [item["step"] for item in result["packing"]["layout"]] == [1, 2, 3]
 
 
 def test_level1_layout_stays_inside_returned_carton():
@@ -70,3 +77,18 @@ def test_level1_rejects_unavailable_public_rate_lane():
     response = client.post("/pack/level1", json=payload)
     assert response.status_code == 422
     assert "No carrier can price" in response.json()["detail"]
+
+
+def test_level1_3d_guide_contains_item_by_item_instructions():
+    response = client.post("/pack/level1/viz", json=_singapore_order())
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+    html = response.text
+    assert "第 1 层级 3D 装箱指南" in html
+    assert "第 1 步：放置 <b>ITEM-3</b>" in html
+    assert "第 2 步：放置 <b>ITEM-1</b>" in html
+    assert "第 3 步：放置 <b>ITEM-2</b>" in html
+    assert "UPS" in html
+    data_match = re.search(r"window\.BOXVIZ_DATA = (.*?);", html)
+    data = json.loads(data_match.group(1))
+    assert data["stepGroups"] == [[12], [13], [14]]

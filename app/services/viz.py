@@ -137,7 +137,7 @@ _VIZ_HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>Packing 3D Visualization</title>
+    <title>__PAGE_TITLE__</title>
     <!-- GL3D-only bundle is substantially smaller and includes Mesh3d/Scatter3d. -->
     <script src="https://cdn.jsdelivr.net/npm/plotly.js-gl3d-dist-min@3.1.0/plotly-gl3d.min.js"></script>
     <style>
@@ -153,9 +153,15 @@ _VIZ_HTML_TEMPLATE = """<!DOCTYPE html>
         #controls button { padding: 6px 12px; border: 1px solid #ccc; cursor: pointer; }
         #controls button:hover { background: #ddd; }
         #info { padding: 8px 20px; font-size: 14px; color: #666; }
+        #guide { padding: 14px 20px; background: #fff; border-bottom: 1px solid #ddd; }
+        #guide h1 { margin: 0 0 8px; font-size: 20px; }
+        #guide p { margin: 4px 0; }
+        #guide ol { margin: 8px 0 0; padding-left: 24px; }
+        #guide li { margin: 5px 0; }
     </style>
 </head>
 <body>
+    <div id="guide">__GUIDE_HTML__</div>
     <div id="controls">
         <button onclick="stepBack()">Back</button>
         <button onclick="stepForward()">Forward</button>
@@ -176,9 +182,9 @@ _VIZ_HTML_TEMPLATE = """<!DOCTYPE html>
     // Layout configuration
     var layout = {
         scene: {
-            xaxis: {title: 'Length (cm)', showgrid: true},
-            yaxis: {title: 'Width (cm)', showgrid: true},
-            zaxis: {title: 'Height (cm)', showgrid: true},
+            xaxis: {title: 'Length (cm)', showgrid: true, nticks: 6},
+            yaxis: {title: 'Width (cm)', showgrid: true, nticks: 6},
+            zaxis: {title: 'Height (cm)', showgrid: true, nticks: 6},
             camera: {
                 eye: {x: window.BOXVIZ_DATA.fitEye.x,
                        y: window.BOXVIZ_DATA.fitEye.y,
@@ -191,7 +197,7 @@ _VIZ_HTML_TEMPLATE = """<!DOCTYPE html>
             }
         },
         margin: {l: 0, r: 0, t: 30, b: 0},
-        title: 'Packing Visualization'
+        title: __PLOT_TITLE_JSON__
     };
 
     // Initially hide all item traces (wireframe always visible)
@@ -286,7 +292,13 @@ _VIZ_HTML_TEMPLATE = """<!DOCTYPE html>
 </html>"""
 
 
-def generate_3d_html(packer_result: dict) -> str:
+def generate_3d_html(
+    packer_result: dict,
+    *,
+    step_mode: str = "group",
+    page_title: str = "Packing Visualization",
+    guide_html: str = "",
+) -> str:
     """Generate a standalone HTML page with interactive 3D packing visualization.
 
     Uses Plotly.js Mesh3d for cuboid rendering and optional boxviz.js
@@ -299,6 +311,9 @@ def generate_3d_html(packer_result: dict) -> str:
         Complete HTML string (standalone, no external dependencies beyond
         Plotly.js CDN).
     """
+    if step_mode not in {"group", "item"}:
+        raise ValueError(f"Unsupported visualization step mode: {step_mode}")
+
     groups = packer_result.get("groups", [])
     if not groups:
         return _generate_empty_html()
@@ -417,7 +432,10 @@ def generate_3d_html(packer_result: dict) -> str:
             total_items += 1
             trace_idx += 1
 
-        all_step_groups.append(step_items)
+        if step_mode == "item":
+            all_step_groups.extend([[item_trace] for item_trace in step_items])
+        else:
+            all_step_groups.append(step_items)
         group_offset_x += L + max(5.0, L * 0.1)
 
     # Build BOXVIZ_DATA
@@ -426,9 +444,9 @@ def generate_3d_html(packer_result: dict) -> str:
     display_length = max(1.0, group_offset_x)
     max_dim = max(display_length, max_display_y, max_display_z, 1.0)
     boxviz_data["aspect"] = {
-        "x": round(display_length / max_dim, 2),
-        "y": round(max_display_y / max_dim, 2),
-        "z": round(max_display_z / max_dim, 2),
+        "x": max(0.55, round(display_length / max_dim, 2)),
+        "y": max(0.55, round(max_display_y / max_dim, 2)),
+        "z": max(0.55, round(max_display_z / max_dim, 2)),
     }
 
     # Load boxviz.js (optional)
@@ -444,6 +462,9 @@ def generate_3d_html(packer_result: dict) -> str:
 
     html_content = _VIZ_HTML_TEMPLATE.replace("__TRACES_JSON__", traces_json)
     html_content = html_content.replace("__BOXVIZ_DATA__", boxviz_json)
+    html_content = html_content.replace("__PAGE_TITLE__", page_title)
+    html_content = html_content.replace("__PLOT_TITLE_JSON__", json.dumps(page_title))
+    html_content = html_content.replace("__GUIDE_HTML__", guide_html)
 
     return html_content
 
