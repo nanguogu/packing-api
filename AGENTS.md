@@ -9,6 +9,7 @@ Products have diverse shapes/weights → AI automates box sizing to improve spac
 
 ### Engine (OR-Tools CP-SAT)
 - Virtual box strategy: minimize maxX + maxY + maxZ
+- Level 1 approved path: exact minimum-volume objective for one custom carton containing exactly 3 cuboids
 - 6 rotation orientations, N<=5 <500ms solve time
 - Constraints: no overlap, items within bounds
 
@@ -53,11 +54,12 @@ Products have diverse shapes/weights → AI automates box sizing to improve spac
 
 ## Status
 
-- 184 tests all passing
+- 190 tests all passing
+- Level 1 complete: `POST /pack/level1` performs 3-item minimum-volume packing and HK→SG Priority carrier comparison
 - D1-D14 complete, D7 (PDF) and D15 (deploy) pending
 - Public logistics quote engine integrated; Singapore Priority full weight bands available
-- Public quote currently excludes special handling, remote-area charges, duties, and taxes
-- Packing requirements are under review; do not treat the current minimum-envelope algorithm as final product behavior
+- Public quote includes configured physical handling surcharges; remote-area charges, duties, taxes, and input-dependent packaging fees remain excluded
+- Level 2/3 packing requirements remain pending; legacy minimum-envelope behavior is not the approved cost optimizer
 - Legacy packing estimator base rates remain hardcoded; surcharge rules are JSON-configurable
 - PostgreSQL required for DB-backed endpoints
 

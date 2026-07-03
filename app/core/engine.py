@@ -32,6 +32,7 @@ def calculate_min_box(
     time_limit_s: float = 8.0,
     workers: int = 8,
     upright_only: bool = False,
+    objective: str = "edge_sum",
 ) -> dict | None:
     """Calculate the minimum bounding box for a set of rectangular items.
 
@@ -49,6 +50,8 @@ def calculate_min_box(
         time_limit_s: CP-SAT solver time limit in seconds. Default 8s.
         workers: Number of parallel search threads. Default 8.
         upright_only: If True, only allow 2 rotation types (no flipping).
+        objective: ``edge_sum`` for legacy behavior or ``volume`` for the
+            smallest custom carton by cubic volume.
 
     Returns:
         Dict with keys:
@@ -61,6 +64,8 @@ def calculate_min_box(
     """
     if not items:
         return None
+    if objective not in {"edge_sum", "volume"}:
+        raise ValueError(f"Unsupported packing objective: {objective}")
 
     n = len(items)
     model = cp_model.CpModel()
@@ -79,10 +84,10 @@ def calculate_min_box(
         ]
         item_dims_mm.append(dims)
 
-    # Use a large virtual box — sum of all item dimensions + generous buffer
-    max_L = sum(d[0] for d in item_dims_mm) + 1000  # extra 1m buffer
-    max_W = sum(d[1] for d in item_dims_mm) + 1000
-    max_H = sum(d[2] for d in item_dims_mm) + 1000
+    # Every item may rotate onto every axis. The sum of each item's largest
+    # edge is therefore a safe bound for all three virtual-box dimensions.
+    max_axis = sum(max(d) for d in item_dims_mm)
+    max_L = max_W = max_H = max_axis
 
     # Decision variables
     x = [model.NewIntVar(0, max_L, f"x_{i}") for i in range(n)]
@@ -129,7 +134,18 @@ def calculate_min_box(
         model.Add(maxX >= x[i] + sx[i])
         model.Add(maxY >= y[i] + sy[i])
         model.Add(maxZ >= z[i] + sz[i])
-    model.Minimize(maxX + maxY + maxZ)
+    if objective == "volume":
+        max_area = max_L * max_W
+        max_volume = max_area * max_H
+        if max_volume > 9_000_000_000_000_000_000:
+            raise ValueError("Item dimensions are too large for volume optimization")
+        area = model.NewIntVar(0, max_area, "boxArea")
+        volume = model.NewIntVar(0, max_volume, "boxVolume")
+        model.AddMultiplicationEquality(area, [maxX, maxY])
+        model.AddMultiplicationEquality(volume, [area, maxZ])
+        model.Minimize(volume)
+    else:
+        model.Minimize(maxX + maxY + maxZ)
 
     # Solve
     solver = cp_model.CpSolver()
@@ -219,6 +235,7 @@ def calculate_min_box(
         "utilization": utilization,
         "solve_time_ms": elapsed_ms,
         "status": "OPTIMAL" if status == cp_model.OPTIMAL else "FEASIBLE",
+        "objective": objective,
     }
 
 

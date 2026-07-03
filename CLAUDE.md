@@ -49,6 +49,7 @@ packing-api/
 | `/pack/viz` | POST | Interactive 3D visualization | HTML |
 | `/pack/` | POST | Pack by SKUs (requires DB) | JSON |
 | `/pack/detail` | POST | Detailed pack by SKUs (requires DB) | JSON |
+| `/pack/level1` | POST | Exactly 3 cuboids → minimum-volume custom carton → public carrier quote | JSON |
 | `/shipping/quote` | POST | Multi-carton public-rate comparison | JSON |
 
 ## Key Technical Decisions
@@ -113,11 +114,13 @@ packing-api/
 - DHL / UPS / FedEx multi-piece shipment comparison
 - Full published Singapore Priority weight bands, including high-weight per-kg rates
 - Unknown lanes and unsupported weights fail explicitly with HTTP 422
-- Special handling, remote-area charges, duties, and taxes remain pending
+- Configured physical handling surcharges are included; remote-area charges, duties, taxes, and input-dependent packaging fees remain pending
 
 ### Packing product direction
-- The current CP-SAT minimum-envelope implementation remains available and tested
-- Its product requirements are being reopened; do not extend or tightly couple it to public quotation until carton selection, constraints, and objective priorities are reconfirmed
+- Level 1 is approved and implemented: one order, exactly three freely rotatable cuboids, one minimum-volume custom carton, followed by HK→SG Priority public-rate comparison
+- Level 2 will add rearrangement/split-carton alternatives driven by oversize and overweight cost
+- Level 3 will add heavy/fragile/must-pack constraints and compare unrestricted items across constrained groups
+- The legacy edge-sum objective remains available but is not the approved Level 1 optimizer
 
 ### Completed (W1 + W2 + W3)
 - D1: Engine (OR-Tools CP-SAT) - 20 tests
@@ -132,7 +135,7 @@ packing-api/
 - D11-D12: 3D visualization (Plotly.js)
 - D13: Packing list generation
 - D14: Integration validation - 23 tests
-- **Total: 184 tests, all passing**
+- **Total: 190 tests, all passing**
 
 ### Pending
 - D7: PDF parsing for shipping rate data (base rates currently hardcoded)

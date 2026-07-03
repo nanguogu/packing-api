@@ -79,6 +79,17 @@ class PackDirectRequest(BaseModel):
     dual_path: bool = Field(default=False, description="Compute dual-path (路A compliant vs 路B optimal+surcharges) and recommend cheapest")
 
 
+class Level1PackingRequest(BaseModel):
+    """Level 1: exactly three cuboids packed into one custom carton."""
+    order_id: str = Field(..., min_length=1, max_length=64)
+    origin: Literal["HK"] = "HK"
+    destination: str = Field(..., min_length=2, max_length=2, description="ISO 3166-1 alpha-2 country code")
+    destination_address: str | None = Field(default=None, max_length=512)
+    service_type: Literal["priority"] = "priority"
+    items: list[PackItem] = Field(..., min_length=3, max_length=3)
+    time_limit_s: float = Field(default=8.0, gt=0, le=30)
+
+
 class PackRequest(BaseModel):
     """Request body for the /pack endpoint: list of SKUs to pack together."""
     skus: list[str] = Field(..., min_length=1, description="List of product SKUs to pack")

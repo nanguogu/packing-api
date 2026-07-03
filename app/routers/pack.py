@@ -10,7 +10,9 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Product, GroupRule
-from app.schemas import PackRequest, PackResponse, PackDirectRequest
+from app.schemas import Level1PackingRequest, PackRequest, PackResponse, PackDirectRequest
+from app.services.level1 import optimize_level1_order
+from app.services.public_shipping import QuoteUnavailable
 from app.services.packer import pack_items
 from app.services.packing_list import generate_packing_list, generate_packing_list_text
 from app.services.viz import generate_3d_html
@@ -18,6 +20,15 @@ from app.services.viz import generate_3d_html
 from fastapi.responses import HTMLResponse
 
 router = APIRouter(prefix="/pack", tags=["pack"])
+
+
+@router.post("/level1")
+def pack_level1(request: Level1PackingRequest):
+    """Optimize three cuboids into one custom carton, then compare carriers."""
+    try:
+        return optimize_level1_order(request)
+    except (QuoteUnavailable, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 def _product_to_item_dict(product: Product) -> dict:
