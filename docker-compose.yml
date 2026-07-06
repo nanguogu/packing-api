@@ -1,15 +1,28 @@
-version: "3.9"
-
 services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: packing_app
+    environment:
+      DATABASE_URL: postgresql://packing:${POSTGRES_PASSWORD:-packing123}@postgres:5432/packing_db
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
   postgres:
     image: postgres:15
     container_name: packing_postgres
     environment:
       POSTGRES_USER: packing
-      POSTGRES_PASSWORD: packing123
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-packing123}
       POSTGRES_DB: packing_db
-    ports:
-      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -21,8 +34,6 @@ services:
   redis:
     image: redis:7
     container_name: packing_redis
-    ports:
-      - "6379:6379"
     volumes:
       - redisdata:/data
     healthcheck:

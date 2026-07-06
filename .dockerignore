@@ -1,0 +1,13 @@
+.git
+.github
+.venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.env
+frontend/node_modules
+frontend/dist
+tests
+tmp
+3D-bin-packing
+boxing-match
