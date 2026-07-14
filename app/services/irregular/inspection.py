@@ -26,7 +26,10 @@ def inspect_irregular_files(
         if production_sheet_bytes else None
     )
     normalized_svg, conversion = obtain_svg(cdr_bytes, cdr_name, svg_bytes)
-    components = parse_svg_components(normalized_svg) if normalized_svg else []
+    components = (
+        parse_svg_components(normalized_svg, confirmed_only=True)
+        if normalized_svg else []
+    )
     classification = classify_assembly(sheet, metadata, components)
     units = build_packing_units(classification, sheet, components)
     warnings = []

@@ -31,6 +31,15 @@ def test_svg_requires_pack_prefix_for_confirmed_geometry():
     assert abs(confirmed[0]["bounds_cm"]["width"] - 8) < 0.01
 
 
+def test_inspection_geometry_skips_unconfirmed_decorative_paths():
+    svg = b'''<svg xmlns="http://www.w3.org/2000/svg" width="100mm" height="50mm" viewBox="0 0 100 50">
+      <path id="decorative-art" d="M 0 0 L 10 0 L 10 10 L 0 10 Z"/>
+      <path id="pack-body" d="M 20 0 L 100 0 L 100 50 L 20 50 Z"/>
+    </svg>'''
+    components = parse_svg_components(svg, confirmed_only=True)
+    assert [item["component_id"] for item in components] == ["pack-body"]
+
+
 def test_dw_lightbox_is_body_plus_detachable_foot():
     sheet = {"fields": {"style_type": "双面面光灯箱", "installation_foot": "不锈钢安装脚", "detachable": "是"}}
     result = classify_assembly(sheet, {"layer_names": ["图层 1"]}, [])

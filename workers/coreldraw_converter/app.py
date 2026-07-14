@@ -43,9 +43,18 @@ async def convert(cdr_file: UploadFile = File(...)):
             application = gencache.EnsureDispatch("CorelDRAW.Application")
             application.Visible = False
             document = application.OpenDocument(str(source))
-            export_filter = document.Export(str(target), constants.cdrSVG)
-            if export_filter is not None and hasattr(export_filter, "Finish"):
-                export_filter.Finish()
+            # CorelDRAW 2024 declares both optional option arguments as COM
+            # interface types.  pywin32 cannot marshal its missing-argument
+            # sentinel for those parameters, so create the official option
+            # objects explicitly and use ExportEx/Finish.
+            export_options = application.CreateStructExportOptions()
+            palette_options = application.CreateStructPaletteOptions()
+            export_options.Overwrite = True
+            export_filter = document.ExportEx(
+                str(target), constants.cdrSVG, constants.cdrCurrentPage,
+                export_options, palette_options,
+            )
+            export_filter.Finish()
             if not target.exists():
                 raise RuntimeError("CorelDRAW did not create the SVG output")
             return Response(

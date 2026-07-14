@@ -88,8 +88,15 @@ def polygons_to_geometry(polygons) -> Polygon | MultiPolygon:
     return geometry
 
 
-def parse_svg_components(svg_bytes: bytes, tolerance_cm: float = 0.05) -> list[dict]:
-    """Parse transformed SVG shapes; ``pack-*`` ids mark confirmed outlines."""
+def parse_svg_components(
+    svg_bytes: bytes, tolerance_cm: float = 0.05, *, confirmed_only: bool = False
+) -> list[dict]:
+    """Parse transformed SVG shapes; ``pack-*`` ids mark confirmed outlines.
+
+    Inspection uses ``confirmed_only`` so a legacy artwork file with hundreds
+    of decorative curves does not spend minutes polygonizing objects that are
+    explicitly ineligible for solving.
+    """
     if not svg_bytes:
         return []
     try:
@@ -101,6 +108,10 @@ def parse_svg_components(svg_bytes: bytes, tolerance_cm: float = 0.05) -> list[d
     for index, element in enumerate(document.elements()):
         if not isinstance(element, Shape) or isinstance(element, SVG):
             continue
+        element_id = getattr(element, "id", None) or f"shape-{index}"
+        confirmed = str(element_id).lower().startswith("pack-")
+        if confirmed_only and not confirmed:
+            continue
         try:
             path = Path(element)
             rings = [_sample_subpath(subpath, tolerance_cm) for subpath in path.as_subpaths()]
@@ -110,10 +121,9 @@ def parse_svg_components(svg_bytes: bytes, tolerance_cm: float = 0.05) -> list[d
         if geometry.is_empty or geometry.area <= 1e-6:
             continue
         min_x, min_y, max_x, max_y = geometry.bounds
-        element_id = getattr(element, "id", None) or f"shape-{index}"
         components.append({
             "component_id": element_id,
-            "confirmed_packing_outline": str(element_id).lower().startswith("pack-"),
+            "confirmed_packing_outline": confirmed,
             "polygons": geometry_to_polygons(geometry),
             "bounds_cm": {
                 "x": round(min_x, 4), "y": round(min_y, 4),

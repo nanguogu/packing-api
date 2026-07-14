@@ -4,6 +4,11 @@ Run this worker only on a licensed Windows machine with CorelDRAW installed.
 It opens a CDR through CorelDRAW COM automation and returns an SVG from
 `POST /convert`.
 
+The implementation has been verified with CorelDRAW 2024 v25.1.0.269. It uses
+`CreateStructExportOptions`, `CreateStructPaletteOptions`, and
+`ExportEx(...).Finish()` because CorelDRAW 2024 exposes the two optional export
+arguments as COM interface values that pywin32 cannot omit safely.
+
 ```powershell
 py -m venv .venv
 .venv\Scripts\pip install -r requirements.txt
@@ -14,6 +19,12 @@ On the packing API machine set:
 
 ```powershell
 $env:CDR_CONVERTER_URL='http://converter-host:8091'
+```
+
+For a converter on the same development machine, run:
+
+```powershell
+.\scripts\start_coreldraw_converter.ps1
 ```
 
 Restrict the worker to the internal network and one conversion at a time. The
