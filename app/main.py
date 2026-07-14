@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from app.database import Base, engine
-from app.routers import pack, products, shipping
+from app.routers import irregular, pack, products, shipping
 
 
 @asynccontextmanager
@@ -30,6 +30,7 @@ app = FastAPI(
 app.include_router(pack.router)
 app.include_router(products.router)
 app.include_router(shipping.router)
+app.include_router(irregular.router)
 
 frontend_dist = Path(__file__).resolve().parents[1] / "frontend" / "dist"
 if frontend_dist.exists():

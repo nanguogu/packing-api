@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import Packing3D from './Packing3D.jsx'
+import IrregularWorkflow from './IrregularWorkflow.jsx'
 
 const API_BASE = import.meta.env.VITE_API_BASE || ''
 const itemColors = ['#ff6b35', '#2563eb', '#22a06b', '#8b5cf6', '#eab308', '#0891b2']
@@ -153,6 +154,7 @@ function Results({ result }) {
 }
 
 export default function App() {
+  const [mode, setMode] = useState('cuboid')
   const [items, setItems] = useState(sampleItems)
   const [orderId, setOrderId] = useState('SG-DEMO-001')
   const [address, setAddress] = useState('Singapore Government Building')
@@ -229,7 +231,8 @@ export default function App() {
         <a className="brand" href="#top"><span className="brand-mark"><Icon name="box"/></span><span>PACK<span>WISE</span></span></a>
         <div className="topbar-meta"><span className="status-dot"/>Level 2 成本优化引擎<span className="version">MVP · HK → SG</span></div>
       </header>
-
+      <nav className="mode-switch" aria-label="装箱模式"><button type="button" className={mode === 'cuboid' ? 'active' : ''} onClick={() => setMode('cuboid')}>3D 长方体</button><button type="button" className={mode === 'irregular' ? 'active' : ''} onClick={() => setMode('irregular')}>2D 不规则灯牌</button></nav>
+      {mode === 'irregular' ? <IrregularWorkflow apiBase={API_BASE}/> : (
       <main id="top">
         <section className="intro">
           <div><span className="eyebrow">CUSTOM CARTON & LOGISTICS OPTIMIZER</span><h1>装箱与物流，<br/><em>一次算到最优。</em></h1></div>
@@ -275,6 +278,7 @@ export default function App() {
         {loading && <section className="loading-panel"><div className="loading-orbit"><span/><span/><span/></div><h2>{loadingMessages[loadingIndex]}</h2><p>最多 5 件货物时，系统会完整比较所有合法分箱组合。</p></section>}
         {result && <Results result={result}/>} 
       </main>
+      )}
       <footer><span>PACKWISE MVP</span><p>公开价仅用于方案比较，正式出货前请以承运商账单为准。</p></footer>
     </div>
   )
